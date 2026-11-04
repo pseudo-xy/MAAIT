@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RESCHU-MAAIT · Replay</title>
+<style>
+  :root{
+    --bg:#0d1622; --panel:#132030; --panel2:#0f1a28; --edge:#213248;
+    --ink:#e8eef6; --muted:#8aa0b8; --accent:#39a0ff;
+    --enemy:#ff5a6e; --friendly:#3fc7ff; --civilian:#8aa0b8; --unknown:#ffd23f;
+    --ok:#42d18a; --warn:#ffb547;
+    --mono:"SFMono-Regular",Consolas,Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  header{height:52px;background:var(--panel2);border-bottom:1px solid var(--edge);
+    display:flex;align-items:center;padding:0 18px;gap:14px}
+  header .title{font-weight:700;letter-spacing:.5px}
+  header .badge{background:#2a1a3a;color:#c79bff;border:1px solid #48307a;border-radius:5px;
+    font-size:11px;padding:2px 8px;letter-spacing:1px}
+  header .clock{font-family:var(--mono);color:var(--accent)}
+  header .spacer{flex:1}
+  select{background:#0f1c2b;color:var(--ink);border:1px solid var(--edge);border-radius:6px;
+    padding:5px 8px;font-size:13px;max-width:340px}
+  a.dl{color:var(--accent);text-decoration:none;font-size:13px;border:1px solid var(--edge);
+    padding:5px 10px;border-radius:6px}
+  .wrap{display:grid;grid-template-columns:1fr 320px;gap:12px;padding:12px;height:calc(100% - 52px - 64px)}
+  .mapcol{display:flex;flex-direction:column;min-width:0}
+  .maphead,.panelhead{font-size:12px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;padding:6px 4px}
+  canvas{width:100%;height:100%;background:#0a1420;border:1px solid var(--edge);border-radius:6px;display:block}
+  .mapbox{flex:1;min-height:0;position:relative}
+  .side{display:flex;flex-direction:column;gap:12px;min-height:0}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:10px 12px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--edge)}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
+  .pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600}
+  .c-enemy{background:rgba(255,90,110,.15);color:var(--enemy)}
+  .c-friendly{background:rgba(63,199,255,.15);color:var(--friendly)}
+  .c-civilian{background:rgba(138,160,184,.15);color:var(--civilian)}
+  .c-unknown{background:rgba(255,210,63,.15);color:var(--unknown)}
+  .kv{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0}
+  .kv span:first-child{color:var(--muted)}
+  /* transport bar */
+  .transport{height:64px;border-top:1px solid var(--edge);background:var(--panel2);
+    display:flex;align-items:center;gap:14px;padding:0 18px}
+  .transport button{background:#163358;color:var(--ink);border:1px solid var(--edge);
+    border-radius:6px;width:44px;height:34px;cursor:pointer;font-size:15px}
+  .transport button:hover{background:#1d4576}
+  .transport input[type=range]{flex:1;accent-color:var(--accent)}
+  .transport .frame{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:120px;text-align:right}
+  .transport .speed{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .transport .speed input{width:90px;accent-color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <div class="title">RESCHU&nbsp;·&nbsp;MAAIT</div>
+  <div class="badge">REPLAY</div>
+  <div class="clock" id="clock">t = —</div>
+  <div class="spacer"></div>
+  <select id="picker"><option value="">Loading recordings…</option></select>
+  <a class="dl" id="dl" href="#" download>Download JSON</a>
+</header>
+
+<div class="wrap">
+  <div class="mapcol">
+    <div class="maphead">Map Area · top view (replay)</div>
+    <div class="mapbox"><canvas id="map"></canvas></div>
+  </div>
+  <div class="side">
+    <div class="card">
+      <div class="panelhead">Contacts (operator view)</div>
+      <div class="scroll" style="max-height:230px;overflow:auto">
+        <table id="op-table"><thead><tr><th>ID</th><th>Perceived</th><th>Tier</th><th>Tries</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="panelhead">Ground truth (researcher only)</div>
+      <div class="scroll" style="max-height:230px;overflow:auto">
+        <table id="truth-table"><thead><tr><th>ID</th><th>True class</th><th>Behavior</th><th>Correct?</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="panelhead">Run</div>
+      <div class="kv"><span>Mission time</span><span id="kv-time" class="mono">—</span></div>
+      <div class="kv"><span>Identified</span><span id="kv-ident">—</span></div>
+      <div class="kv"><span>Correctly identified</span><span id="kv-correct">—</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="transport">
+  <button id="playpause" title="Play / Pause">▶</button>
+  <button id="back" title="Step back">⏮</button>
+  <input id="scrub" type="range" min="0" max="0" value="0" step="1">
+  <button id="fwd" title="Step forward">⏭</button>
+  <div class="speed">SPEED <input id="speed" type="range" min="0.25" max="8" step="0.25" value="1"><span id="speedval" class="mono">1×</span></div>
+  <div class="frame" id="frameinfo">— / —</div>
+</div>
+
+<script>
+const cv=document.getElementById('map'), ctx=cv.getContext('2d');
+let frames=[], idx=0, playing=false, speed=1, timer=null, state=null;
+const COLORS={enemy:'#ff5a6e',friendly:'#3fc7ff',civilian:'#8aa0b8',unknown:'#ffd23f'};
+
+function fit(){
+  const r=cv.getBoundingClientRect();
+  cv.width=r.width*devicePixelRatio; cv.height=r.height*devicePixelRatio;
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  render();
+}
+window.addEventListener('resize',fit);
+
+function mapping(){
+  const r=cv.getBoundingClientRect();
+  const gw=state.grid.width, gh=state.grid.height, pad=24;
+  const s=Math.min((r.width-2*pad)/gw,(r.height-2*pad)/gh);
+  const ox=(r.width-gw*s)/2, oy=(r.height-gh*s)/2;
+  return {s,ox,oy,X:x=>ox+x*s,Y:y=>oy+(gh-y)*s};
+}
+
+function render(){
+  if(!state){return;}
+  const r=cv.getBoundingClientRect(); ctx.clearRect(0,0,r.width,r.height);
+  const m=mapping();
+  // grid
+  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+  for(let gx=0;gx<=state.grid.width;gx+=10){ctx.beginPath();ctx.moveTo(m.X(gx),m.Y(0));ctx.lineTo(m.X(gx),m.Y(state.grid.height));ctx.stroke();}
+  for(let gy=0;gy<=state.grid.height;gy+=10){ctx.beginPath();ctx.moveTo(m.X(0),m.Y(gy));ctx.lineTo(m.X(state.grid.width),m.Y(gy));ctx.stroke();}
+  ctx.strokeStyle='rgba(255,255,255,0.12)';
+  ctx.strokeRect(m.X(0),m.Y(state.grid.height),state.grid.width*m.s,state.grid.height*m.s);
+  // agent links
+  for(const lk of (state.agent_links||[])){
+    const u=state.usvs.find(x=>x.id===lk.usv_id), b=state.boats.find(x=>x.id===lk.boat_id);
+    if(!u||!b||b.left_grid)continue;
+    ctx.beginPath();ctx.moveTo(m.X(u.x),m.Y(u.y));ctx.lineTo(m.X(b.x),m.Y(b.y));
+    ctx.strokeStyle='rgba(30,95,255,0.85)';ctx.lineWidth=2;ctx.setLineDash([2,3]);ctx.stroke();ctx.setLineDash([]);
+  }
+  // manual links
+  const linkedBoatIds=new Set((state.manual_links||[]).map(l=>l.boat_id));
+  for(const lk of (state.manual_links||[])){
+    const u=state.usvs.find(x=>x.id===lk.usv_id), b=state.boats.find(x=>x.id===lk.boat_id);
+    if(!u||!b||b.left_grid)continue;
+    ctx.beginPath();ctx.moveTo(m.X(u.x),m.Y(u.y));ctx.lineTo(m.X(b.x),m.Y(b.y));
+    ctx.strokeStyle='rgba(90,210,255,0.9)';ctx.lineWidth=2.4;ctx.setLineDash([6,3]);ctx.stroke();ctx.setLineDash([]);
+  }
+  // USVs
+  for(const u of state.usvs){
+    const cx=m.X(u.x),cy=m.Y(u.y);
+    if(u.mode==='manual'&&u.destination){
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(m.X(u.destination.x),m.Y(u.destination.y));
+      ctx.strokeStyle='#eaf2ff';ctx.lineWidth=2.2;ctx.stroke();
+    }
+    ctx.beginPath();ctx.arc(cx,cy,8,0,Math.PI*2);
+    ctx.fillStyle='#1e5fff';ctx.fill();ctx.strokeStyle='#eaf2ff';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle='#cfe0f2';ctx.font='11px var(--sans)';ctx.textAlign='center';
+    ctx.fillText(`${u.id} · ${u.mode}`,cx,cy+21);
+  }
+  // boats
+  const dzr=(state.danger_zone||state.identify_range);
+  for(const b of state.boats){
+    if(b.left_grid)continue;
+    const cx=m.X(b.x),cy=m.Y(b.y);
+    const cls=b.identified?b.perceived_class:'unknown';
+    const color=COLORS[cls]||COLORS.unknown;
+    ctx.beginPath();ctx.arc(cx,cy,dzr*m.s,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,210,63,0.30)';ctx.setLineDash([4,4]);ctx.lineWidth=1.2;ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=color;ctx.strokeStyle='rgba(0,0,0,0.55)';ctx.lineWidth=1.5;
+    if(cls==='unknown'){   // unknown = yellow clover; friendly / civilian = circles
+      const R=5.5,off=4,lobes=[[cx,cy-off],[cx+off,cy],[cx,cy+off],[cx-off,cy]];
+      for(const [lx,ly] of lobes){ctx.beginPath();ctx.arc(lx,ly,R,0,Math.PI*2);ctx.stroke();}
+      for(const [lx,ly] of lobes){ctx.beginPath();ctx.arc(lx,ly,R,0,Math.PI*2);ctx.fill();}
+    } else {
+      ctx.beginPath();
+      if(cls==='enemy'){ctx.moveTo(cx,cy-8);ctx.lineTo(cx+8,cy);ctx.lineTo(cx,cy+8);ctx.lineTo(cx-8,cy);ctx.closePath();}
+      else{ctx.arc(cx,cy,7,0,Math.PI*2);}
+      ctx.fill();ctx.stroke();
+    }
+    // letters
+    ctx.fillStyle='#0a1420';ctx.font='bold 9px var(--sans)';ctx.textAlign='center';ctx.textBaseline='middle';
+    if(cls==='unknown')ctx.fillText('?',cx,cy+0.5);
+    else if(cls==='enemy'&&b.threat_tier)ctx.fillText(b.threat_tier,cx,cy+0.5);
+    else if(cls==='civilian')ctx.fillText('C',cx,cy+0.5);
+    else if(cls==='friendly')ctx.fillText('F',cx,cy+0.5);
+    ctx.textBaseline='alphabetic';
+    ctx.fillStyle='#b9cbe0';ctx.font='11px var(--sans)';ctx.fillText(b.id,cx,cy-12);
+  }
+}
+
+function panels(){
+  if(!state)return;
+  document.getElementById('clock').textContent=`t = ${state.now_min} min`;
+  document.getElementById('kv-time').textContent=`${state.now_min} min`;
+  const ob=document.querySelector('#op-table tbody'), tb=document.querySelector('#truth-table tbody');
+  ob.innerHTML='';tb.innerHTML='';let ident=0,correct=0;
+  for(const b of state.boats){
+    if(b.identified)ident++; if(b.correctly_identified)correct++;
+    const pc=b.identified?b.perceived_class:'unknown';
+    ob.insertAdjacentHTML('beforeend',`<tr><td>${b.id}</td><td><span class="pill c-${pc}">${pc}</span></td><td>${b.threat_tier||'—'}</td><td>${b.id_attempts||0}</td></tr>`);
+    const t=b.truth||{};
+    tb.insertAdjacentHTML('beforeend',`<tr><td>${b.id}</td><td>${t.true_class||'—'}</td><td>${t.behavior||'—'}</td><td>${b.identified?(b.correctly_identified?'✓':'✗'):'—'}</td></tr>`);
+  }
+  document.getElementById('kv-ident').textContent=`${ident} / ${state.boats.length}`;
+  document.getElementById('kv-correct').textContent=`${correct} / ${state.boats.length}`;
+}
+
+function show(i){
+  if(!frames.length)return;
+  idx=Math.max(0,Math.min(frames.length-1,i));
+  state=frames[idx];
+  document.getElementById('scrub').value=idx;
+  document.getElementById('frameinfo').textContent=`${idx+1} / ${frames.length}`;
+  render();panels();
+}
+
+function tick(){
+  if(!playing)return;
+  if(idx>=frames.length-1){pause();return;}
+  show(idx+1);
+  timer=setTimeout(tick, 500/speed);   // base 0.5s/frame, divided by speed
+}
+function play(){ if(!frames.length)return; playing=true; document.getElementById('playpause').textContent='⏸';
+  if(idx>=frames.length-1)show(0); tick(); }
+function pause(){ playing=false; document.getElementById('playpause').textContent='▶'; if(timer)clearTimeout(timer); }
+
+document.getElementById('playpause').onclick=()=>playing?pause():play();
+document.getElementById('fwd').onclick=()=>{pause();show(idx+1);};
+document.getElementById('back').onclick=()=>{pause();show(idx-1);};
+document.getElementById('scrub').oninput=(e)=>{pause();show(parseInt(e.target.value));};
+document.getElementById('speed').oninput=(e)=>{speed=parseFloat(e.target.value);
+  document.getElementById('speedval').textContent=speed.toFixed(2).replace(/\.?0+$/,'')+'×';};
+
+async function loadList(){
+  const res=await fetch('/recordings'); const data=await res.json();
+  const pick=document.getElementById('picker');
+  if(!data.recordings.length){pick.innerHTML='<option value="">No recordings yet — run a session first</option>';return;}
+  pick.innerHTML=data.recordings.map(n=>`<option value="${n}">${n}</option>`).join('');
+  pick.onchange=()=>loadRecording(pick.value);
+  loadRecording(data.recordings[0]);
+}
+async function loadRecording(name){
+  if(!name)return;
+  pause();
+  const res=await fetch('/recordings/'+encodeURIComponent(name));
+  const data=await res.json();
+  frames=data.frames||[];
+  document.getElementById('scrub').max=Math.max(0,frames.length-1);
+  document.getElementById('dl').href='/recordings/'+encodeURIComponent(name);
+  document.getElementById('dl').download=name;
+  fit(); show(0);
+}
+loadList();
+</script>
+</body>
+</html>

@@ -2,3 +2,4 @@ MAAIT.zip filter=lfs diff=lfs merge=lfs -text
 MAAIT_MDP_v1_r3.zip filter=lfs diff=lfs merge=lfs -text
 MAAIT[[:space:]]2 filter=lfs diff=lfs merge=lfs -text
 MAAIT_file.zip filter=lfs diff=lfs merge=lfs -text
+MAAIT_file filter=lfs diff=lfs merge=lfs -text

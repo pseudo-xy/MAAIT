@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RESCHU-MAAIT · Scenario Configuration</title>
+<style>
+  :root{
+    --bg:#0d1622; --panel:#132030; --panel2:#0f1a28; --edge:#213248;
+    --ink:#e8eef6; --muted:#8aa0b8; --accent:#39a0ff;
+    --enemy:#ff5a6e; --friendly:#3fc7ff; --civilian:#8aa0b8; --unknown:#ffd23f;
+    --ok:#42d18a; --warn:#ffb547;
+    --mono:"SFMono-Regular",Consolas,Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  body{display:flex;flex-direction:column}
+  header{background:#0b1220;border-bottom:1px solid var(--edge);display:flex;align-items:center;
+    gap:14px;padding:14px 20px}
+  header .gear{font-size:18px}
+  header .title{font-weight:700;font-size:16px}
+  header .spacer{flex:1}
+  header a,header button{font-size:13px;border-radius:6px;padding:8px 14px;cursor:pointer;
+    text-decoration:none;border:1px solid var(--edge);background:#152438;color:var(--ink)}
+  header .apply{background:var(--accent);border-color:var(--accent);color:#00203f;font-weight:700}
+  header .apply:hover{filter:brightness(1.08)}
+  .wrap{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:16px;
+    padding:18px;max-width:1600px;margin:0 auto;width:100%}
+  .row2{display:grid;grid-template-columns:minmax(320px,1fr) minmax(520px,1.6fr);gap:16px;margin-bottom:16px}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:8px;overflow:hidden;
+    display:flex;flex-direction:column;min-height:0}
+  .card h2{margin:0;background:#0b1524;border-bottom:1px solid var(--edge);padding:12px 16px;
+    font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#cfe0f2;flex:0 0 auto}
+  .card .bd{padding:16px;flex:1 1 auto;min-height:0;overflow:auto}
+  /* one-screen settings: the whole page never scrolls — each panel scrolls on its own.
+     Top band = Scenario Setup (left) and a Boats→Comms stack (right); USV panel sits below. */
+  .topband{flex:1 1 auto;min-height:0;display:grid;
+    grid-template-columns:minmax(320px,1fr) minmax(520px,1.6fr);gap:16px}
+  .topband>.card{min-height:0}
+  .rightcol{display:flex;flex-direction:column;gap:16px;min-height:0}
+  .rightcol>.card{flex:1 1 0;min-height:0}
+  .usvcard{flex:0 0 auto;max-height:40vh}
+  /* keep table/ timeline headers visible while the rows scroll under them */
+  .scrollhead{position:sticky;top:0;z-index:2;background:var(--panel)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  input,select{background:#0f1c2b;color:var(--ink);border:1px solid var(--edge);border-radius:5px;
+    padding:5px 7px;font-size:13px;width:auto}
+  input[type=number]{width:64px}
+  select{max-width:220px}
+  .field{margin-bottom:10px}
+  .field label{display:block;color:var(--muted);font-size:12px;margin-bottom:3px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;text-align:left;padding:4px 5px}
+  thead th{position:sticky;top:-16px;background:var(--panel);z-index:2}
+  td{padding:3px 5px;border-top:1px solid var(--edge);vertical-align:middle}
+  td .coord{display:flex;gap:4px}
+  td .coord input{width:48px;padding:4px 5px}
+  td select{max-width:130px}
+  select.sm,input.sm{padding:4px 6px;font-size:12.5px}
+  .rowlabel{color:var(--accent);font-weight:600}
+  .usvrow{display:grid;grid-template-columns:56px 130px auto;gap:8px;align-items:center;
+    padding:6px 0;border-top:1px solid var(--edge)}
+  .usvrow:first-child{border-top:none}
+  .addbtn{margin-top:8px;background:#152438;border:1px dashed var(--edge);color:var(--muted);
+    border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer}
+  .addbtn:hover{color:var(--ink)}
+  .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px}
+  .del:hover{color:var(--enemy)}
+  .note{color:var(--muted);font-size:11.5px;margin-top:10px;line-height:1.5}
+  /* USV timeline rows */
+  .tlrow{display:grid;grid-template-columns:56px 118px 150px 78px 1fr 44px 28px;gap:10px;align-items:center;
+    padding:8px 0;border-top:1px solid var(--edge)}
+  .tlrow:first-child{border-top:none}
+  .tlrow .timeline{min-width:0}
+  .tlrow .tltotal{color:var(--ok);font-weight:700;font-size:13px;text-align:right}
+  .tlrow .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px}
+  .tlhead{display:grid;grid-template-columns:56px 118px 150px 78px 1fr 44px 28px;gap:10px;padding-bottom:4px;
+    position:sticky;top:-16px;background:var(--panel);z-index:2}
+  .tlhead>span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+  .modesel{display:flex;flex-direction:column;gap:3px}
+  .modechk{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);cursor:pointer}
+  .modechk.on{color:var(--ink)}
+  .modechk input{width:auto;margin:0}
+  /* comms schedule */
+  .commsgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .commscard{border:1px solid var(--edge);border-radius:6px;overflow:hidden}
+  .commscard .chd{background:#2c6bbd;color:#fff;text-align:center;font-weight:700;font-size:12px;padding:6px}
+  .commscard .cbody{padding:8px 10px}
+  .commscard .crow{display:grid;grid-template-columns:1fr 52px 52px;gap:6px;align-items:center;margin-bottom:7px}
+  .commscard .crow.chead{margin-bottom:5px}
+  .commscard .crow.chead > span{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+  .commscard .crow.chead > span:nth-child(2),.commscard .crow.chead > span:nth-child(3){text-align:center}
+  .commscard .cstate{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink)}
+  .commscard .cdot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .commscard input{width:100%;text-align:center;padding:4px 2px;font-size:11px}
+  #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f2a1c;
+    border:1px solid var(--ok);color:#bff3d8;padding:10px 18px;border-radius:8px;display:none;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <span class="gear">⚙️</span>
+  <span class="title">ADMINISTRATOR — Scenario Configuration</span>
+  <span class="spacer"></span>
+  <button id="resetbtn" title="Reset to the default scenario">Reset to default</button>
+  <a href="/" id="cancel">Cancel</a>
+  <button class="apply" id="applybtn">Apply &amp; Return</button>
+</header>
+
+<div class="wrap">
+  <!-- TOP BAND: Scenario Setup (left) · Boats → Comms stack (right), all above the USV panel -->
+  <div class="topband">
+    <!-- SCENARIO SETUP -->
+    <div class="card">
+      <h2>Scenario Setup</h2>
+      <div class="bd">
+        <div class="grid2">
+          <div class="field">
+            <label>Number of USVs</label>
+            <input type="number" id="numUsvs" min="1" max="8" value="4">
+            <div class="note" style="margin-top:3px">Maximum 8 USVs.</div>
+          </div>
+          <div class="field">
+            <label>Number of boats</label>
+            <input type="number" id="numBoats" min="1" max="15" value="6">
+            <div class="note" style="margin-top:3px">Maximum 15 boats.</div>
+          </div>
+          <div class="field">
+            <label>Mission duration (real-time minutes)</label>
+            <input type="number" id="missionMin" min="1" value="20">
+          </div>
+          <div class="field">
+            <label>Map size</label>
+            <select id="mapSize">
+              <option value="small">Small — 25 × 40 cells</option>
+              <option value="medium">Medium — 50 × 80 cells</option>
+              <option value="large" selected>Large — 75 × 120 cells</option>
+            </select>
+            <input type="hidden" id="gridW" value="120">
+            <input type="hidden" id="gridH" value="75">
+            <div class="note" id="mapRec" style="margin-top:4px">—</div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <div class="note" style="margin-bottom:5px">Small-map cell reference — rows <b>A–Y</b> (A at top, down to Y), columns <b>1–40</b> (x). e.g. the top-left cell is <b>A1</b>.</div>
+          <div id="refGrid" style="width:100%;overflow:auto"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Boats Panel, then Comms Schedule right under it -->
+    <div class="rightcol">
+      <!-- BOATS PANEL -->
+      <div class="card">
+        <h2>Boats Panel</h2>
+        <div class="bd">
+          <table>
+            <thead><tr>
+              <th>#</th><th>Type</th><th>Behaviour</th><th>Tier</th>
+              <th>Start</th><th>Exit</th><th>Known?</th><th></th>
+            </tr></thead>
+            <tbody id="boatRows"></tbody>
+          </table>
+          <button class="addbtn" id="addBoat">+ Add boat</button>
+          <div class="note">
+            <b>Type</b> is the true class. <b>Behaviour</b> is only selectable for enemies
+            (aggressive / standoff) — civilian and friendly boats have a fixed behaviour that
+            matches their type. <b>Tier</b> only applies to standoff enemies (low = 4 knt, med = 9 knt).
+            <b>Known?</b> = starts already identified. Each behaviour steers itself —
+            aggressive boats chase the nearest USV or friendly they detect, civilians
+            random-walk, friendlies transit across and exit, standoff enemies head to
+            a random edge — so there is no fixed end goal to set.
+          </div>
+        </div>
+      </div>
+
+      <!-- COMMS SCHEDULE (right under the Boats panel, in line with Scenario Setup) -->
+      <div class="card">
+        <h2>Comms Schedule — per USV: when each comms state starts and how long it lasts</h2>
+        <div class="bd">
+          <div id="commsGrid" class="commsgrid"></div>
+          <div class="note" style="margin-top:8px">For each USV, set when each comms state begins (start, minutes into the mission) and how long it lasts (duration). Leave start blank for a state you don't use. This drives the comms signal shown in Health &amp; Status.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- USV CONTROL (full width, below Scenario Setup / Boats / Comms) -->
+  <div class="card usvcard">
+    <h2>USV Control — start position · control mode · timeline</h2>
+    <div class="bd">
+      <div class="tlhead">
+        <span>USV</span><span>start (x,y)</span><span>modes</span><span>fuel start %</span><span>timeline (drag handles · click a segment to change mode)</span><span>total</span><span></span>
+      </div>
+      <div id="usvRows"></div>
+      <button class="addbtn" id="addUsv">+ Add USV</button>
+      <div class="note" style="margin-top:8px">The <b>timeline</b> spans the whole mission. Drag the handles to set which mode controls each stretch — e.g. dragging so <b>Manual</b> covers 7→12 means that USV is manually controlled from minute 7 to 12. Click a segment to change its mode. The three segments always fill the mission. <b>Fuel start %</b> is the fuel each USV begins the mission with (it burns about 6% per minute). Below <b>20%</b> a USV can no longer be sent back to base.</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const MODES = ["manual","llm","mdp"];
+const TYPES = ["enemy","friendly","civilian"];
+const BEHAVIORS = ["aggressive","standoff","civilian","friendly"];
+const TIERS = ["low","med"];   // tier only applies to standoff enemies (low = 4 knt, med = 9 knt)
+let cfg = null;
+
+function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstChild; }
+
+// A1-label helpers. The label space is always the small 40x25 grid:
+// columns 1..40 (x), rows A..Y (A at top). On bigger maps the backend expands a
+// label into a scale x scale block and picks a random cell inside it.
+const _ROW_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXY";
+function cellOf(start){
+  // display an A1 label for a config 'start' value (already a label, or [x,y]).
+  if (typeof start === 'string' && /^[A-Ya-y]\d{1,2}$/.test(start.trim()))
+    return start.trim().toUpperCase();
+  if (Array.isArray(start) && start.length>=2){
+    // convert raw [x,y] on the CURRENT grid back to a small-map label
+    const gw=parseFloat(document.getElementById('gridW').value)||40;
+    const gh=parseFloat(document.getElementById('gridH').value)||25;
+    const scale=Math.max(1, Math.round(gw/40));
+    let col0=Math.floor(start[0]/scale);               // 0..39
+    let rowTop0=Math.floor((gh-start[1])/scale);        // 0..24 from top
+    col0=Math.max(0,Math.min(39,col0)); rowTop0=Math.max(0,Math.min(24,rowTop0));
+    return _ROW_LETTERS[rowTop0] + (col0+1);
+  }
+  return 'A1';
+}
+function validCell(s){ return typeof s==='string' && /^[A-Ya-y]([1-9]|[1-3]\d|40)$/.test(s.trim()); }
+
+// The slider runs the sim in REAL TIME at 1x, so the mission length in minutes
+// is exactly how long the operator watches at 1x. The slider can speed it up or
+// slow it down at run time.
+function updateMissionNote(){
+  const el2=document.getElementById('missionNote'); if(!el2) return;
+  const mins=parseFloat(document.getElementById('missionMin').value)||0;
+  el2.innerHTML = `Mission length in <b>real time</b>. At the default speed (slider = 1&times;) `
+    + `the simulation runs in real time, so a <b>${mins}-minute</b> mission takes `
+    + `<b>${mins} minutes</b> to watch. The speed slider lets the operator speed up or slow down.`;
+}
+document.addEventListener('input', (e)=>{ if(e.target && e.target.id==='missionMin'){ updateMissionNote(); redrawTimelines(); } });
+function redrawTimelines(){ document.querySelectorAll('#usvRows .usvrow').forEach(r=>{ if(r._redrawTL) r._redrawTL(); }); }
+
+// ---- USV rows ----
+const TL_MODES = [
+  {key:'llm',    label:'LLM',    color:'#3a76d8'},
+  {key:'mdp',    label:'MDP',    color:'#6f4bd6'},
+  {key:'manual', label:'Manual', color:'#8a96a3'},
+];
+function tlModeColor(k){ const m=TL_MODES.find(x=>x.key===k); return m?m.color:'#8a96a3'; }
+function tlModeLabel(k){ const m=TL_MODES.find(x=>x.key===k); return m?m.label:k; }
+
+function usvRow(u, i){
+  const mission = parseFloat(document.getElementById('missionMin')?.value)||20;
+  // enabled modes for this USV (default all three). Keep in canonical order.
+  const ORDER = ['llm','mdp','manual'];
+  let enabled = (u.modes && u.modes.length) ? ORDER.filter(m=>u.modes.includes(m)) : ORDER.slice();
+  if (!enabled.length) enabled = ['manual'];
+
+  // segments follow the enabled modes: one segment per enabled mode, in order,
+  // tiling the mission evenly. Reuse a saved timeline only if it matches.
+  function evenSegs(modes){
+    const n=modes.length;
+    return modes.map((m,k)=>({mode:m, from:k/n, to:(k+1)/n}));
+  }
+  let seg;
+  if (u.timeline && u.timeline.length===enabled.length
+      && u.timeline.every(s=>enabled.includes(s.mode))){
+    seg = u.timeline.map(s=>({...s}));
+  } else {
+    seg = evenSegs(enabled);
+  }
+
+  const modeChecks = ORDER.map(m=>{
+    const on = enabled.includes(m);
+    return `<label class="modechk${on?' on':''}" data-mode="${m}">
+      <input type="checkbox" ${on?'checked':''}> ${tlModeLabel(m)}</label>`;
+  }).join('');
+
+  const row = el(`<div class="usvrow tlrow">
+    <div class="rowlabel">USV-${i+1}</div>
+    <div class="coord" style="display:flex;gap:4px;align-items:center">
+      <input class="ustart sm" type="text" value="${cellOf(u.start)}" placeholder="A1"
+        title="start cell (A1 style)" style="width:54px;text-transform:uppercase">
+    </div>
+    <div class="modesel">${modeChecks}</div>
+    <div><input class="ufuel sm" type="number" min="0" max="100" step="1"
+      value="${u.fuel_start ?? 100}" title="fuel % this USV starts the mission with" style="width:62px"></div>
+    <div class="timeline"></div>
+    <div class="tltotal">${mission}<span style="color:var(--muted);font-weight:400">m</span></div>
+    <button class="del" title="remove">✕</button>
+  </div>`);
+  row.querySelector('.del').onclick=()=>{ row.remove(); syncCounts(); };
+
+  const tlHost = row.querySelector('.timeline');
+  row._seg = seg;
+  row._enabled = enabled;
+
+  // toggle a mode on/off -> rebuild the timeline segments
+  row.querySelectorAll('.modechk').forEach(chk=>{
+    chk.querySelector('input').addEventListener('change', ()=>{
+      const m=chk.dataset.mode;
+      let en=row._enabled.slice();
+      if(en.includes(m)) en=en.filter(x=>x!==m); else en=ORDER.filter(x=>x===m||row._enabled.includes(x));
+      if(!en.length){ chk.querySelector('input').checked=true; return; }  // keep >=1
+      row._enabled=en;
+      row.querySelectorAll('.modechk').forEach(c=>c.classList.toggle('on', en.includes(c.dataset.mode)));
+      seg = evenSegs(en); row._seg = seg;
+      drawTL();
+    });
+  });
+
+  function drawTL(){
+    const mission = parseFloat(document.getElementById('missionMin')?.value)||20;
+    const totEl = row.querySelector('.tltotal');
+    if (totEl) totEl.innerHTML = `${mission}<span style="color:var(--muted);font-weight:400">m</span>`;
+    const W = tlHost.clientWidth || 480, H = 46;
+    const padX = 6, padTop = 6, barH = 22;
+    const bw = W - 2*padX;
+    const xOf = f => padX + f*bw;
+    let s = `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block">`;
+    // segments
+    seg.forEach((sg,si)=>{
+      const x0=xOf(sg.from), x1=xOf(sg.to), w=Math.max(0,x1-x0);
+      const mins = Math.round((sg.to-sg.from)*mission*10)/10;
+      s += `<rect class="tseg" data-seg="${si}" x="${x0}" y="${padTop}" width="${w}" height="${barH}" fill="${tlModeColor(sg.mode)}" stroke="#0b1622" stroke-width="1" rx="2" style="cursor:pointer"/>`;
+      if (w>34) s += `<text x="${x0+w/2}" y="${padTop+barH/2+3}" fill="#fff" font-size="10" text-anchor="middle" style="pointer-events:none">${tlModeLabel(sg.mode)} · ${mins}m</text>`;
+    });
+    // internal boundaries: one handle between each adjacent pair of segments
+    for(let hi=0; hi<seg.length-1; hi++){
+      const f=seg[hi].to, x=xOf(f);
+      s += `<line x1="${x}" y1="${padTop-2}" x2="${x}" y2="${padTop+barH+2}" stroke="#fff" stroke-width="1.5"/>`;
+      s += `<circle class="thandle" data-handle="${hi}" cx="${x}" cy="${padTop+barH+7}" r="6" fill="#fff" stroke="#3a6ea5" stroke-width="1.5" style="cursor:ew-resize"/>`;
+    }
+    // ticks 0..mission
+    for(let t=0;t<=mission;t+=Math.max(1,Math.round(mission/6))){
+      const x=xOf(t/mission);
+      s += `<text x="${x}" y="${H-1}" fill="#6f8aa8" font-size="8" text-anchor="middle">${t}</text>`;
+    }
+    s += `</svg>`;
+    tlHost.innerHTML = s;
+    wireTL();
+  }
+
+  function wireTL(){
+    const svg = tlHost.querySelector('svg');
+    // click a segment -> cycle its mode among the ENABLED modes only
+    svg.querySelectorAll('.tseg').forEach(r=>{
+      r.addEventListener('click', (e)=>{
+        if (svg._dragging) return;   // ignore click after a drag
+        const si=+r.dataset.seg;
+        const en=row._enabled;
+        seg[si].mode = en[(en.indexOf(seg[si].mode)+1)%en.length];
+        row._seg = seg; drawTL();
+      });
+    });
+    // drag a handle (boundary hi is between seg[hi] and seg[hi+1])
+    svg.querySelectorAll('.thandle').forEach(h=>{
+      h.addEventListener('mousedown',(e)=>{
+        e.preventDefault();
+        const hi=+h.dataset.handle;
+        const rect=svg.getBoundingClientRect();
+        const padX=6, bw=rect.width-2*padX;
+        const move=(ev)=>{
+          svg._dragging=true;
+          let f=(ev.clientX-rect.left-padX)/bw;
+          const lo=(hi>0? seg[hi-1].to : 0)+0.04;
+          const hiBound=(hi<seg.length-2? seg[hi+1].to : 1)-0.04;
+          f=Math.max(lo, Math.min(hiBound, f));
+          seg[hi].to=f; seg[hi+1].from=f;
+          row._seg=seg; drawTL();
+        };
+        const up=()=>{ document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up);
+          setTimeout(()=>{ const s2=tlHost.querySelector('svg'); if(s2) s2._dragging=false; },50); };
+        document.addEventListener('mousemove',move); document.addEventListener('mouseup',up);
+      });
+    });
+  }
+
+  // draw once laid out
+  requestAnimationFrame(drawTL);
+  row._redrawTL = drawTL;
+  return row;
+}
+function renderUsvs(){
+  const box=document.getElementById('usvRows'); box.innerHTML='';
+  cfg.usvs.forEach((u,i)=>box.appendChild(usvRow(u,i)));
+}
+
+// ---- comms schedule (one card per USV) ----
+const COMMS_STATES = [
+  {key:'in_range',    label:'in range',    color:'#3fbf4f'},
+  {key:'near_edge',   label:'near edge',   color:'#e6952b'},
+  {key:'out_of_range',label:'out of range',color:'#e0403f'},
+];
+function commsCard(usvIndex, sched){
+  // sched: {in_range:{start,dur}, near_edge:{...}, out_of_range:{...}} or {}
+  sched = sched || {};
+  const rows = COMMS_STATES.map(s=>{
+    const v = sched[s.key] || {};
+    const start = (v.start===0||v.start) ? v.start : '';
+    const dur = (v.dur===0||v.dur) ? v.dur : '';
+    return `<div class="crow" data-state="${s.key}">
+      <span class="cstate"><span class="cdot" style="background:${s.color}"></span>${s.label}</span>
+      <input class="cstart" type="number" min="0" placeholder="–" value="${start}">
+      <input class="cdur" type="number" min="0" placeholder="0" value="${dur}">
+    </div>`;
+  }).join('');
+  return el(`<div class="commscard" data-usv="${usvIndex}">
+    <div class="chd">USV-${usvIndex+1}</div>
+    <div class="cbody">
+      <div class="crow chead"><span>state</span><span>start</span><span>dur</span></div>
+      ${rows}
+    </div>
+  </div>`);
+}
+function renderComms(){
+  const box=document.getElementById('commsGrid'); if(!box) return;
+  const n = document.querySelectorAll('#usvRows .usvrow').length || (cfg.usvs||[]).length;
+  // preserve any values already typed into existing cards
+  const existing = {};
+  box.querySelectorAll('.commscard').forEach(card=>{
+    const idx=card.dataset.usv; const s={};
+    card.querySelectorAll('.crow[data-state]').forEach(row=>{
+      s[row.dataset.state]={start:row.querySelector('.cstart').value, dur:row.querySelector('.cdur').value};
+    });
+    existing[idx]=s;
+  });
+  box.style.gridTemplateColumns = `repeat(${Math.min(Math.max(n,1),4)}, 1fr)`;
+  box.innerHTML='';
+  for(let i=0;i<n;i++){
+    let sched = existing[i];
+    if(!sched){
+      // fall back to any schedule in cfg for this USV
+      sched = {};
+      const u = (cfg.usvs && cfg.usvs[i]) || {};
+      (u.comms||[]).forEach(w=>{ sched[w.state] = {start:w.start, dur:w.dur}; });
+    }
+    box.appendChild(commsCard(i, sched));
+  }
+}
+
+// ---- boat rows ----
+function boatRow(b, i){
+  const typeOpts = TYPES.map(t=>`<option value="${t}" ${b.true_class===t?'selected':''}>${t}</option>`).join('');
+  const behOpts = BEHAVIORS.map(t=>`<option value="${t}" ${b.behavior===t?'selected':''}>${t}</option>`).join('');
+  const curTier = (b.tier==='med'||b.tier==='medium') ? 'med' : 'low';   // only low/med are selectable now
+  const tierOpts = TIERS.map(t=>`<option value="${t}" ${curTier===t?'selected':''}>${t}</option>`).join('');
+  const row = el(`<tr>
+    <td class="rowlabel">${i+1}</td>
+    <td><select class="btype sm">${typeOpts}</select></td>
+    <td><select class="bbeh sm">${behOpts}</select></td>
+    <td><select class="btier sm">${tierOpts}</select></td>
+    <td><input class="bstart sm" type="text" value="${cellOf(b.start)}" placeholder="A1" style="width:52px;text-transform:uppercase"></td>
+    <td><input class="bexit sm" type="text" value="${b.exit||''}" placeholder="edge" style="width:52px;text-transform:uppercase" title="exit cell (friendly only; must be an edge cell)"></td>
+    <td style="text-align:center"><input class="bknown" type="checkbox" ${b.known?'checked':''} style="width:auto"></td>
+    <td><button class="del" title="remove">✕</button></td>
+  </tr>`);
+  row.querySelector('.del').onclick=()=>{ row.remove(); syncCounts(); };
+  // exit only applies to friendly boats (they exit the map after being escorted).
+  // A boat is friendly if its TYPE is friendly; keep type & behaviour in sync so
+  // choosing one friendly implies the other, and the exit field opens.
+  const syncExit = ()=>{
+    const isF = row.querySelector('.btype').value==='friendly'
+             || row.querySelector('.bbeh').value==='friendly';
+    const ex=row.querySelector('.bexit');
+    ex.disabled=!isF; ex.style.opacity=isF?'1':'0.4';
+    ex.placeholder = isF ? 'edge cell' : '—';
+    if(!isF) ex.value='';
+  };
+  // Tier only applies to standoff enemies. Aggressive boats are always HIGH;
+  // civilians and friendlies have no tier. So the tier dropdown is enabled only
+  // when behaviour is "standoff" and greyed out otherwise.
+  const syncTier = ()=>{
+    const isStandoff = row.querySelector('.bbeh').value==='standoff';
+    const ti=row.querySelector('.btier');
+    ti.disabled=!isStandoff; ti.style.opacity=isStandoff?'1':'0.4';
+    ti.title = isStandoff ? 'standoff speed (low = 4 knt, med = 9 knt)' : 'tier only applies to standoff enemies';
+  };
+  // Behaviour can only be CHOSEN for enemy boats (aggressive / standoff). Civilians
+  // and friendlies have a fixed behaviour that matches their type, so the Behaviour
+  // dropdown is locked to match the type and greyed out for them.
+  const syncBehaviour = ()=>{
+    const type = row.querySelector('.btype').value;
+    const bb = row.querySelector('.bbeh');
+    const optCiv = [...bb.options].find(o=>o.value==='civilian');
+    const optFr  = [...bb.options].find(o=>o.value==='friendly');
+    if(type==='enemy'){
+      // enemies pick aggressive or standoff; civilian/friendly are not valid
+      if(optCiv) optCiv.disabled=true;
+      if(optFr)  optFr.disabled=true;
+      if(bb.value==='civilian' || bb.value==='friendly') bb.value='aggressive';
+      bb.disabled=false; bb.style.opacity='1';
+      bb.title='enemy behaviour: aggressive or standoff';
+    } else {
+      // civilian / friendly: behaviour is fixed to the type and locked
+      if(optCiv) optCiv.disabled=false;
+      if(optFr)  optFr.disabled=false;
+      bb.value=type;                 // 'civilian' or 'friendly'
+      bb.disabled=true; bb.style.opacity='0.4';
+      bb.title='behaviour is fixed for civilian and friendly boats';
+    }
+  };
+  row.querySelector('.btype').addEventListener('change', ()=>{ syncBehaviour(); syncExit(); syncTier(); });
+  row.querySelector('.bbeh').addEventListener('change', ()=>{ syncExit(); syncTier(); });
+  syncBehaviour();
+  syncExit();
+  syncTier();
+  return row;
+}
+function renderBoats(){
+  const box=document.getElementById('boatRows'); box.innerHTML='';
+  cfg.boats.forEach((b,i)=>box.appendChild(boatRow(b,i)));
+}
+
+function syncCounts(){
+  document.getElementById('numUsvs').value=document.querySelectorAll('#usvRows .usvrow').length;
+  document.getElementById('numBoats').value=document.querySelectorAll('#boatRows tr').length;
+  renderComms();
+}
+
+// hard caps (enforced in JS, not just the HTML max= attribute which only
+// blocks the spinner arrows and lets typed-in values through)
+const MAX_USVS = 8, MAX_BOATS = 15;
+function clampInt(v, lo, hi){ v = parseInt(v)||lo; return Math.max(lo, Math.min(hi, v)); }
+
+// count fields add/remove rows
+document.getElementById('numUsvs').onchange=(e)=>{
+  const n=clampInt(e.target.value, 1, MAX_USVS); e.target.value=n;
+  const box=document.getElementById('usvRows');
+  let cur=box.querySelectorAll('.usvrow').length;
+  while(cur<n){ box.appendChild(usvRow({mode:'llm',start:[50,30]}, cur)); cur++; }
+  while(cur>n){ box.lastChild.remove(); cur--; }
+  relabelUsvs(); renderComms();
+};
+document.getElementById('numBoats').onchange=(e)=>{
+  const n=clampInt(e.target.value, 1, MAX_BOATS); e.target.value=n;
+  const box=document.getElementById('boatRows');
+  let cur=box.querySelectorAll('tr').length;
+  while(cur<n){ box.appendChild(boatRow({true_class:'civilian',behavior:'civilian',tier:'n/a',start:[50,30]}, cur)); cur++; }
+  while(cur>n){ box.lastChild.remove(); cur--; }
+  relabelBoats();
+};
+// mission duration: clamp on edit
+document.getElementById('missionMin').onchange=(e)=>{
+  e.target.value = Math.max(1, parseInt(e.target.value)||1);
+  updateMissionNote();
+};
+function relabelUsvs(){ document.querySelectorAll('#usvRows .usvrow .rowlabel').forEach((el,i)=>el.textContent='USV-'+(i+1)); }
+function relabelBoats(){ document.querySelectorAll('#boatRows tr .rowlabel').forEach((el,i)=>el.textContent=(i+1)); }
+
+// "+ Add" buttons respect the caps too (do nothing once at the cap)
+document.getElementById('addUsv').onclick=()=>{
+  if(document.querySelectorAll('#usvRows .usvrow').length >= MAX_USVS){ toast('Maximum '+MAX_USVS+' USVs'); return; }
+  document.getElementById('usvRows').appendChild(usvRow({mode:'llm',start:[50,30]}, document.querySelectorAll('#usvRows .usvrow').length)); syncCounts();
+};
+document.getElementById('addBoat').onclick=()=>{
+  if(document.querySelectorAll('#boatRows tr').length >= MAX_BOATS){ toast('Maximum '+MAX_BOATS+' boats'); return; }
+  document.getElementById('boatRows').appendChild(boatRow({true_class:'civilian',behavior:'civilian',tier:'n/a',start:[50,30]}, document.querySelectorAll('#boatRows tr').length)); syncCounts();
+};
+
+// ---- collect the form into a config dict ----
+function collect(){
+  const usvs=[...document.querySelectorAll('#usvRows .usvrow')].map((r,i)=>{
+    const u={
+      start: (r.querySelector('.ustart').value||'A1').trim().toUpperCase(),
+    };
+    const fs = parseFloat(r.querySelector('.ufuel')?.value);
+    u.fuel_start = isNaN(fs) ? 100 : Math.min(100, Math.max(0, fs));
+    // timeline -> mode + timeline segments (with minute boundaries)
+    const mission = parseFloat(document.getElementById('missionMin').value)||20;
+    const seg = r._seg || [{mode:'llm',from:0,to:1/3},{mode:'mdp',from:1/3,to:2/3},{mode:'manual',from:2/3,to:1}];
+    u.modes = (r._enabled || ['llm','mdp','manual']).slice();
+    u.timeline = seg.map(s=>({mode:s.mode, from:s.from, to:s.to,
+                              start_min:Math.round(s.from*mission*100)/100,
+                              end_min:Math.round(s.to*mission*100)/100}));
+    // the USV's mode at t=0 is the first segment's mode (used as its start mode)
+    u.mode = seg[0].mode;
+    // comms schedule from the matching comms card
+    const card=document.querySelector(`#commsGrid .commscard[data-usv="${i}"]`);
+    if(card){
+      const comms=[];
+      card.querySelectorAll('.crow[data-state]').forEach(row=>{
+        const st=row.querySelector('.cstart').value;
+        const dur=row.querySelector('.cdur').value;
+        if(st!=='' && parseFloat(dur)>0){
+          comms.push({state:row.dataset.state, start:parseFloat(st), dur:parseFloat(dur)});
+        }
+      });
+      if(comms.length) u.comms=comms;
+    }
+    return u;
+  });
+  const boats=[...document.querySelectorAll('#boatRows tr')].map(r=>{
+    const beh = r.querySelector('.bbeh').value;
+    const b={
+      true_class: r.querySelector('.btype').value,
+      behavior: beh,
+      // tier is only meaningful for standoff enemies; everything else is n/a
+      tier: beh==='standoff' ? r.querySelector('.btier').value : 'n/a',
+      start: (r.querySelector('.bstart').value||'A1').trim().toUpperCase(),
+      known: r.querySelector('.bknown').checked,
+    };
+    const ex = (r.querySelector('.bexit').value||'').trim().toUpperCase();
+    const isFriendly = b.true_class==='friendly' || b.behavior==='friendly';
+    if (isFriendly && ex) b.exit = ex;
+    return b;
+  });
+  return {
+    grid: {width: parseFloat(document.getElementById("gridW").value)||99,
+           height: parseFloat(document.getElementById("gridH").value)||63},
+    mission_minutes: Math.max(1, parseFloat(document.getElementById("missionMin").value)||20),
+    usvs: usvs.slice(0, MAX_USVS),
+    boats: boats.slice(0, MAX_BOATS),
+  };
+}
+
+// ---- map size selector ----
+const MAP_SIZES = {
+  small:  { w:40,  h:25, rec:"Best for ~4 boats and 2 USVs" },
+  medium: { w:80,  h:50, rec:"Best for ~8 boats and 3 USVs" },
+  large:  { w:120, h:75, rec:"Best for ~12 boats and 4 USVs" },
+};
+
+// Small-map cell reference grid (40 x 25): columns 1-40 (x), rows A-Y (y, with
+// A at the bottom). Every cell shown; scales to fit the panel width.
+function drawRefGrid(){
+  const host = document.getElementById('refGrid');
+  if (!host) return;
+  const W = 40, H = 25;                 // small map
+  const cell = 15;                      // viewBox units per cell
+  const padL = 20, padT = 16, padR = 6, padB = 6;
+  const gw = W*cell, gh = H*cell;
+  const vbW = gw+padL+padR, vbH = gh+padT+padB;
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXY";   // 25 rows, A at TOP down to Y
+  const xOf = c => padL + c*cell;
+  const yTop = r => padT + r*cell;      // r=0 (row A) at the TOP, going down
+  let s = `<svg viewBox="0 0 ${vbW} ${vbH}" width="100%" style="display:block" font-family="var(--mono,monospace)">`;
+  s += `<rect x="${padL}" y="${padT}" width="${gw}" height="${gh}" fill="#0b1622" stroke="#2f5372"/>`;
+  // cell lines
+  for (let c=0;c<=W;c++){ const x=xOf(c), M=(c%5===0);
+    s+=`<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT+gh}" stroke="${M?'#2f5372':'#18324a'}" stroke-width="${M?0.7:0.4}"/>`; }
+  for (let r=0;r<=H;r++){ const y=padT+r*cell, M=(r%5===0);
+    s+=`<line x1="${padL}" y1="${y}" x2="${padL+gw}" y2="${y}" stroke="${M?'#2f5372':'#18324a'}" stroke-width="${M?0.7:0.4}"/>`; }
+  // column numbers 1..40 — one on top of EVERY cell
+  for (let c=1;c<=W;c++){ const x=xOf(c-1)+cell/2;
+    s+=`<text x="${x}" y="${padT-4}" fill="#8fa8c4" font-size="5.5" text-anchor="middle">${c}</text>`; }
+  // row letters A..Y down the left — A at the top
+  for (let r=0;r<H;r++){ const y=yTop(r)+cell/2+2.5;
+    s+=`<text x="${padL-4}" y="${y}" fill="#8fa8c4" font-size="7" text-anchor="end">${letters[r]}</text>`; }
+  s += `</svg>`;
+  host.innerHTML = s;
+}
+
+function applyMapSize(key, {rescale=true}={}){
+  const m = MAP_SIZES[key] || MAP_SIZES.large;
+  const oldW = parseFloat(document.getElementById('gridW').value)||m.w;
+  const oldH = parseFloat(document.getElementById('gridH').value)||m.h;
+  document.getElementById('gridW').value = m.w;
+  document.getElementById('gridH').value = m.h;
+  document.getElementById('mapRec').innerHTML =
+    `<b>${key.charAt(0).toUpperCase()+key.slice(1)} map</b> · ${m.h} × ${m.w} cells (rows × columns) — ${m.rec}`;
+  // Positions are A1 cell labels in the fixed 40x25 space, so they are the same
+  // on every map size — no rescaling needed when the map size changes.
+}
+
+function mapKeyFor(w,h){
+  for (const k in MAP_SIZES){ if (MAP_SIZES[k].w===w && MAP_SIZES[k].h===h) return k; }
+  return 'large';
+}
+
+document.getElementById('mapSize').addEventListener('change', (e)=>{
+  applyMapSize(e.target.value);
+});
+
+
+function toast(msg, ok=true){
+  const t=document.getElementById('toast'); t.textContent=msg;
+  t.style.borderColor = ok?'var(--ok)':'var(--enemy)';
+  t.style.background = ok?'#0f2a1c':'#2a1116';
+  t.style.color = ok?'#bff3d8':'#ffc9d0';
+  t.style.display='block'; setTimeout(()=>t.style.display='none', 2200);
+}
+
+document.getElementById('applybtn').onclick=async()=>{
+  const c=collect();
+  const res=await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)});
+  const data=await res.json();
+  if(data.ok){ toast('Scenario saved. Returning to simulation…'); setTimeout(()=>location.href='/', 700); }
+  else { toast('Error: '+(data.error||'invalid config'), false); }
+};
+document.getElementById('resetbtn').onclick=async()=>{
+  // reload the server default
+  const res=await fetch('/config?default=1'); // ignored param; we just re-fetch default via a fresh load
+  location.reload();
+};
+
+// ---- load current config ----
+async function load(){
+  const res=await fetch('/config'); cfg=await res.json();
+  const gw = cfg.grid?cfg.grid.width:60, gh = cfg.grid?cfg.grid.height:45;
+  document.getElementById('gridW').value=gw;
+  document.getElementById('gridH').value=gh;
+  const key = mapKeyFor(gw, gh);
+  document.getElementById('mapSize').value = key;
+  applyMapSize(key, {rescale:false});   // set the recommendation, keep saved positions
+  document.getElementById('missionMin').value=cfg.mission_minutes||20;
+  updateMissionNote();
+  document.getElementById('numUsvs').value=(cfg.usvs||[]).length;
+  document.getElementById('numBoats').value=(cfg.boats||[]).length;
+  renderUsvs(); renderBoats(); renderComms(); drawRefGrid();
+}
+load();
+</script>
+</body>
+</html>

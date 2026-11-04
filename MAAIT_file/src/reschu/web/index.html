@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RESCHU-MAAIT</title>
+<style>
+  :root {
+    --bg:#0d1622; --panel:#132030; --panel2:#0f1a28; --edge:#213248;
+    --ink:#e8eef6; --muted:#8aa0b8; --accent:#39a0ff;
+    --enemy:#ff5a6e; --friendly:#3fc7ff; --civilian:#8aa0b8; --unknown:#ffd23f;
+    --ok:#42d18a; --warn:#ffb547;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink);
+    font-family:var(--sans); }
+  header { height:52px; background:var(--panel2); border-bottom:1px solid var(--edge);
+    display:flex; align-items:center; padding:0 18px; gap:14px; }
+  header .title { font-weight:700; letter-spacing:.5px; }
+  header .clock { font-family:var(--mono); color:var(--accent); }
+  header .spacer { flex:1; }
+  header .hint { color:var(--muted); font-size:13px; }
+  /* SPEED CONTROL — 1x = real time */
+  #speedctl { display:flex; align-items:center; gap:8px; margin-right:16px;
+    padding:4px 10px; border:1px solid var(--edge); border-radius:6px; }
+  #speedctl .lbl { color:var(--muted); font-size:10px; letter-spacing:1px; }
+  #speedctl input[type=range]{ width:120px; accent-color:var(--accent); }
+  #speedctl .val { font-family:var(--mono); font-size:12px; color:var(--ink);
+    min-width:34px; text-align:right; }
+  /* END SPEED CONTROL */
+  #recbtn { margin-right:16px; padding:5px 12px; border-radius:6px; cursor:pointer;
+    background:#2a1116; color:#ff6b7f; border:1px solid #7a2230; font-size:12px;
+    font-weight:600; letter-spacing:.5px; }
+  #recbtn:hover { background:#3a1620; }
+  #recbtn.recording { background:#ff5a6e; color:#fff; border-color:#ff5a6e;
+    animation:recpulse 1.2s ease-in-out infinite; }
+  #recbtn.armed { background:#3a2a10; color:var(--warn); border-color:var(--warn); }
+  #pausebtn { margin-right:16px; padding:5px 12px; border-radius:6px; cursor:pointer;
+    background:#1a2436; color:#c79bff; border:1px solid #48307a; font-size:12px; font-weight:600; }
+  #pausebtn:hover { background:#242f45; }
+  #pausebtn.paused { background:#3a2a10; color:var(--warn); border-color:var(--warn); }
+  #settingslink, #resultslink { margin-right:16px; padding:5px 12px; border-radius:6px; text-decoration:none;
+    background:#152438; color:#9bc7ff; border:1px solid #2f5a8a; font-size:12px; font-weight:600; }
+  #settingslink:hover, #resultslink:hover { background:#1d3350; }
+  /* start overlay */
+  #startoverlay { position:absolute; inset:0; display:flex; align-items:center;
+    justify-content:center; background:rgba(10,20,32,0.55); backdrop-filter:blur(2px);
+    z-index:30; border-radius:6px; }
+  #startoverlay .box { text-align:center; background:#0f1c2b; border:1px solid var(--edge);
+    border-radius:12px; padding:26px 34px; box-shadow:0 10px 40px rgba(0,0,0,.55); }
+  #startoverlay .ttl { font-size:18px; font-weight:700; margin-bottom:8px; }
+  #startoverlay .sub { color:var(--muted); font-size:13px; line-height:1.5; margin-bottom:18px; }
+  #startbtn { background:var(--ok); color:#062015; border:none; border-radius:8px;
+    padding:11px 22px; font-size:15px; font-weight:700; cursor:pointer; }
+  #startbtn:hover { filter:brightness(1.1); }
+  @keyframes recpulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+  /* ADMIN MENU — settings / pause / record / speed are administrator-only */
+  #adminbtn { padding:5px 12px; border-radius:6px; cursor:pointer; background:#1a2436;
+    color:#9bc7ff; border:1px solid #2f5a8a; font-size:12px; font-weight:600; letter-spacing:.5px; }
+  #adminbtn:hover { background:#1d3350; }
+  #adminbtn.open { background:#1d3350; border-color:#9bc7ff; }
+  #pausedbadge { display:none; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:700;
+    letter-spacing:1px; background:#3a2a10; color:var(--warn); border:1px solid var(--warn); }
+  #adminpanel { display:none; position:fixed; top:46px; right:14px; z-index:60; min-width:300px;
+    background:#0f1c2b; border:1px solid var(--edge); border-radius:10px; padding:12px 14px;
+    box-shadow:0 10px 40px rgba(0,0,0,.6); }
+  #adminpanel.show { display:block; }
+  #adminpanel .ahead { display:flex; align-items:center; justify-content:space-between;
+    font-size:11px; letter-spacing:1px; color:var(--muted); margin-bottom:10px; }
+  #adminpanel .arow { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  #adminpanel #speedctl, #adminpanel #recbtn, #adminpanel #settingslink, #adminpanel #resultslink, #adminpanel #pausebtn {
+    margin-right:0; }
+  #adminlock { padding:4px 10px; border-radius:6px; cursor:pointer; background:#2a1116;
+    color:#ff9aa8; border:1px solid #7a2230; font-size:11px; font-weight:600; }
+  #adminmodal { display:none; position:fixed; inset:0; z-index:70; background:rgba(5,10,18,.6);
+    align-items:center; justify-content:center; }
+  #adminmodal.show { display:flex; }
+  #adminmodal .box { background:#0f1c2b; border:1px solid var(--edge); border-radius:12px;
+    padding:22px 26px; width:300px; box-shadow:0 10px 40px rgba(0,0,0,.6); }
+  #adminmodal .ttl { font-weight:700; margin-bottom:12px; }
+  #adminmodal input { width:100%; box-sizing:border-box; padding:8px 10px; border-radius:6px;
+    border:1px solid var(--edge); background:#0b1622; color:var(--ink); font-size:14px; }
+  #adminmodal .err { color:#ff6b7f; font-size:12px; min-height:16px; margin:6px 0 4px; }
+  #adminmodal .btns { display:flex; gap:8px; justify-content:flex-end; margin-top:6px; }
+  #adminmodal button { padding:7px 14px; border-radius:6px; cursor:pointer; font-weight:600;
+    border:1px solid var(--edge); background:#1a2436; color:var(--ink); }
+  #adminmodal button.primary { background:var(--accent); color:#06121f; border-color:var(--accent); }
+  /* END ADMIN MENU */
+  .wrap { display:grid; grid-template-columns:310px 1fr 260px; gap:12px; padding:12px;
+    height:calc(100vh - 52px); overflow:hidden; box-sizing:border-box; }
+  /* ---- Message Box ---- */
+  .msgbox { margin-top:10px; flex:0 0 auto; }
+  .msghead { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:0 12px; }
+  .msggrid { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:4px 12px 10px; }
+  .msglbl { font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--muted);
+    margin-bottom:6px; }
+  .recipients { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .recipients .chip { font-size:11px; padding:5px 12px; border-radius:6px; cursor:pointer;
+    background:#0f1c2b; border:1px solid var(--edge); color:#cbd5e1; user-select:none; }
+  .recipients .chip:hover { background:#16283b; }
+  .recipients .chip.sel { background:#1a2436; border-color:#3a6ea5; color:#fff; font-weight:600; }
+  .recipients .chip.disabled { opacity:0.35; cursor:not-allowed; text-decoration:line-through; }
+  .recipients .chip.agent.sel { background:#3a2a55; border-color:#6f4bd6; }
+  .msgthread { height:150px; overflow-y:auto; background:#0b1622; border:1px solid var(--edge);
+    border-radius:6px; padding:8px; display:flex; flex-direction:column; gap:6px; }
+  .msgthread .mine { align-self:flex-end; max-width:85%; background:#183048; color:#eaf2ff;
+    padding:5px 9px; border-radius:8px 8px 2px 8px; font-size:12px; }
+  .msgthread .theirs { align-self:flex-start; max-width:85%; background:#141f2e; color:#d6e0ec;
+    padding:5px 9px; border-radius:8px 8px 8px 2px; font-size:12px; border:1px solid var(--edge); }
+  .msgthread .meta { font-size:9px; color:var(--muted); margin-top:2px; }
+  .msginput { display:flex; gap:6px; margin-top:8px; }
+  .msginput input { flex:1; background:#0f1c2b; border:1px solid var(--edge); color:var(--ink);
+    border-radius:6px; padding:7px 10px; font-size:12px; }
+  .msginput button { background:#1c2634; color:#cbd5e1; border:1px solid var(--edge);
+    border-radius:6px; padding:7px 16px; font-size:12px; cursor:pointer; font-weight:600; }
+  .msginput button:hover { background:#26344a; }
+  .incominglist { height:194px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+  .incominglist .imsg { background:#0f1826; border:1px solid var(--edge); border-radius:6px;
+    padding:7px 9px; }
+  .incominglist .ihead { display:flex; align-items:center; gap:8px; margin-bottom:3px; }
+  .incominglist .iname { font-size:11px; font-weight:700; color:var(--ink); }
+  .previewlink { color:#5aa0ff; text-decoration:none; font-size:11px; cursor:pointer; }
+  .previewlink:hover { text-decoration:underline; }
+  .pvclose { position:absolute; top:5px; right:6px; z-index:3; background:rgba(10,15,22,0.7);
+    color:#cbd5e1; border:1px solid var(--edge); border-radius:4px; cursor:pointer;
+    font-size:11px; padding:1px 7px; }
+  .pvclose:hover { background:rgba(30,40,55,0.9); }
+  .incominglist .itime { font-size:9px; color:var(--muted); }
+  .incominglist .itext { font-size:11.5px; color:#d6e0ec; }
+  .leftcol { display:flex; flex-direction:column; gap:10px; min-height:0; overflow:hidden; }
+  .leftcol .card:nth-child(1) { flex:0 0 auto; }              /* camera feeds */
+  .leftcol .card:nth-child(2) { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }  /* video grows */
+  .leftcol .card:nth-child(3) { flex:0 0 auto; }              /* health */
+  .mapcol { display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden; }
+  .mapbox { flex:1 1 auto; min-height:0; position:relative; }
+  .side { display:flex; flex-direction:column; gap:12px; min-height:0; overflow:hidden; }
+  .side .card { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+  .maphead, .panelhead { font-size:12px; letter-spacing:1px; color:var(--muted);
+    text-transform:uppercase; padding:6px 4px; }
+  canvas { width:100%; height:100%; background:#0a1420; border:1px solid var(--edge);
+    border-radius:6px; display:block; }
+  .mapbox { flex:1; min-height:0; position:relative; }
+  .side { display:flex; flex-direction:column; gap:12px; min-height:0; }
+  .card { background:var(--panel); border:1px solid var(--edge); border-radius:6px;
+    padding:10px 12px; }
+  .side .scroll { overflow:auto; }
+
+  /* Camera feeds */
+  .camhead { display:flex; align-items:center; justify-content:space-between; }
+  .camgrid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .videopanel { position:relative; flex:1 1 auto; min-height:120px; background:#0a0f16;
+    border:1px solid var(--edge); border-radius:4px; overflow:hidden; }
+  .videopanel .cid { position:absolute; top:5px; left:6px; font-size:11px; color:#cbd5e1;
+    background:rgba(10,15,22,0.7); padding:1px 6px; border-radius:3px; z-index:2; }
+  .videopanel .cstat { position:absolute; top:5px; right:6px; font-size:10px; padding:1px 6px;
+    border-radius:3px; z-index:2; }
+  .videopanel .cross { position:absolute; inset:0; }
+  .videopanel .empty { position:absolute; inset:0; display:flex; align-items:center;
+    justify-content:center; color:var(--muted); font-size:11px; text-align:center; padding:0 10px; }
+  .camtile { position:relative; aspect-ratio:4/3; background:#0a0f16; border:1px solid var(--edge);
+    border-radius:5px; overflow:hidden; }
+  .camtile.sel { border-color:#1e5fff; box-shadow:0 0 0 1px #1e5fff; }
+  .camtile .cid { position:absolute; top:3px; left:4px; font-size:9px; color:#cbd5e1;
+    background:#0009; padding:1px 4px; border-radius:3px; z-index:2; }
+  .camtile .cstat { position:absolute; top:3px; right:4px; font-size:8.5px; padding:1px 5px;
+    border-radius:3px; font-weight:600; z-index:2; }
+  .camtile .cross { position:absolute; inset:0; }
+  .camtile.offline { display:flex; align-items:center; justify-content:center; flex-direction:column;
+    color:#5b6675; }
+  .camtile .noglyph { width:34px; height:34px; border:2px solid #5b6675; border-radius:50%;
+    position:relative; }
+  .camtile .noglyph::after { content:''; position:absolute; left:-3px; top:50%; width:40px; height:2px;
+    background:#5b6675; transform:rotate(-45deg); transform-origin:center; }
+  .camtile .nolbl { font-size:8.5px; margin-top:6px; letter-spacing:1px; }
+
+  /* Health & status */
+  .healthlist { display:flex; flex-direction:column; }
+  .hrow { display:grid; grid-template-columns:42px minmax(0,1fr) 48px 48px 34px; gap:6px;
+    align-items:center; padding:8px 0; border-top:1px solid var(--edge); }
+  .hrow .hid { white-space:nowrap; }
+  .hrow:first-child { border-top:none; }
+  .hrow.hhead { padding:4px 0 6px; border-top:none; }
+  .hrow.hhead > div { font-size:9px; letter-spacing:0.5px; color:var(--muted);
+    text-transform:uppercase; font-weight:600; }
+  .hrow.gone { opacity:0.4; filter:grayscale(1); }
+  .hrow .hid { color:#4aa3ff; font-weight:700; font-size:11px; }
+  .battery { display:inline-flex; align-items:center; gap:2px; }
+  .battery .cell { display:inline-block; width:24px; height:14px; border:1.5px solid #8a96a3;
+    border-radius:2px; position:relative; overflow:hidden; vertical-align:middle; }
+  .battery .fill { display:block; height:100%; }
+  .battery .nub { width:3px; height:7px; background:#8a96a3; border-radius:0 1px 1px 0; }
+  .battery .pct { font-size:9px; color:var(--muted); margin-left:2px; }
+  .commsbadge { width:20px; height:20px; border-radius:50%; color:#fff; font-weight:700; font-size:10px;
+    display:flex; align-items:center; justify-content:center; }
+  .agenttog { width:42px; height:19px; border-radius:11px; position:relative; }
+  .agenttog .knob { position:absolute; top:2px; width:15px; height:15px; border-radius:50%; background:#fff; }
+  .agenttog .tlabel { position:absolute; top:0; height:19px; display:flex; align-items:center;
+    font-size:8px; font-weight:700; color:#fff; }
+  .rtbbtn { background:#1c2634; color:#cbd5e1; border:1px solid var(--edge); border-radius:5px;
+    font-size:9.5px; padding:4px 0; width:100%; cursor:pointer; font-weight:600; }
+  .rtbbtn:hover:not(:disabled) { background:#26344a; }
+  .rtbbtn:disabled { opacity:0.4; cursor:default; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th,td { text-align:left; padding:5px 6px; border-bottom:1px solid var(--edge); }
+  th { color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:10px; font-size:11px;
+    font-weight:600; }
+  .c-enemy{ background:rgba(255,90,110,.15); color:var(--enemy); }
+  .c-friendly{ background:rgba(63,199,255,.15); color:var(--friendly); }
+  .c-civilian{ background:rgba(138,160,184,.15); color:var(--civilian); }
+  .c-unknown{ background:rgba(255,210,63,.15); color:var(--unknown); }
+  .legend { display:flex; flex-wrap:wrap; gap:10px; font-size:12px; color:var(--muted); }
+  .legend span{ display:inline-flex; align-items:center; gap:5px; }
+  .dot{ width:9px;height:9px;border-radius:50%; }
+  /* context menu */
+  #menu { position:absolute; z-index:20; background:#0f1c2b; border:1px solid var(--edge);
+    border-radius:8px; padding:6px; min-width:180px; box-shadow:0 8px 24px rgba(0,0,0,.5);
+    display:none; font-size:13px; }
+  #menu .mhead{ color:var(--muted); font-size:11px; padding:4px 8px 6px; text-transform:uppercase; }
+  #menu button{ display:block; width:100%; text-align:left; background:none; border:0;
+    color:var(--ink); padding:7px 10px; border-radius:5px; cursor:pointer; font-size:13px; }
+  #menu button:hover{ background:rgba(57,160,255,.14); }
+  #menu .sub{ color:var(--muted); font-size:11px; padding:6px 10px 2px; }
+  #menu .row{ display:flex; gap:4px; padding:0 6px 4px; }
+  #menu .row button{ text-align:center; border:1px solid var(--edge); }
+  #tooltip { position:absolute; z-index:25; pointer-events:none; display:none;
+    background:#0f2036; border:1px solid var(--accent); border-radius:6px;
+    padding:5px 9px; font-size:12px; color:var(--ink); white-space:nowrap;
+    box-shadow:0 4px 14px rgba(0,0,0,.5); }
+  #tooltip .t-speed{ color:var(--ok); font-weight:600; }
+  #tooltip .t-eta{ color:var(--accent); }
+  #stepper { position:absolute; z-index:30; display:none; width:96px;
+    background:#0f1c2b; border:1px solid var(--edge); border-radius:10px;
+    padding:8px; text-align:center; box-shadow:0 8px 24px rgba(0,0,0,.55); }
+  #stepper .sbtn { display:block; width:100%; border:1px solid var(--edge);
+    background:#12324a; color:var(--ink); border-radius:6px; padding:6px 0;
+    cursor:pointer; font-size:15px; }
+  #stepper .sbtn:hover { background:rgba(90,210,255,.22); }
+  #stepper .sval { font-size:20px; font-weight:700; padding:7px 0 2px; }
+  #stepper .sunit { font-size:11px; color:var(--muted); padding-bottom:6px; }
+  .disabled{ opacity:.4; pointer-events:none; }
+  .foot{ color:var(--muted); font-size:11.5px; padding-top:6px; }
+  .kv{ display:flex; justify-content:space-between; font-size:12.5px; padding:3px 0; }
+  .kv span:first-child{ color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="title">RESCHU&nbsp;·&nbsp;MAAIT</div>
+  <div class="clock" id="clock">t = — min</div>
+  <div class="spacer"></div>
+  <span id="pausedbadge">⏸ PAUSED</span>
+  <button id="adminbtn" title="Administrator menu (passcode required)">🔒 ADMIN</button>
+</header>
+
+<!-- ADMIN MENU: administrator-only controls (opened with the passcode) -->
+<div id="adminpanel" role="dialog" aria-label="Administrator controls">
+  <div class="ahead"><span>ADMINISTRATOR</span>
+    <button id="adminlock" title="Close the menu and lock it again">🔒 Lock &amp; close</button></div>
+  <div class="arow">
+    <div id="speedctl" title="1× = real time · drag to slow down or speed up">
+      <span class="lbl">SPEED</span>
+      <input id="speed" type="range" min="0.5" max="60" step="0.5" value="1">
+      <span class="val" id="speedval">1.0&times;</span>
+    </div>
+  </div>
+  <div class="arow">
+    <button id="pausebtn" title="Pause / resume the simulation">⏸ PAUSE</button>
+    <button id="recbtn" title="Record the map to a video (arm, then auto-starts with the simulation)">● REC</button>
+    <a id="settingslink" href="/settings" title="Scenario configuration (set up before starting)">⚙ SETTINGS</a>
+  </div>
+  <div class="arow">
+    <a id="resultslink" href="/results/all.zip" title="Download every saved results CSV as one zip">⬇ DOWNLOAD RESULTS</a>
+  </div>
+</div>
+<div id="adminmodal">
+  <div class="box">
+    <div class="ttl">🔒 Administrator access</div>
+    <input id="adminpass" type="password" placeholder="Passcode" autocomplete="off">
+    <div class="err" id="adminerr"></div>
+    <div class="btns"><button id="admincancel">Cancel</button>
+      <button id="adminok" class="primary">Unlock</button></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="leftcol">
+    <div class="card">
+      <div class="panelhead camhead">Camera Feeds</div>
+      <div id="camgrid" class="camgrid"></div>
+    </div>
+    <div class="card">
+      <div class="panelhead">Video</div>
+      <div id="videoPanel" class="videopanel"></div>
+    </div>
+  </div>
+
+  <div class="mapcol">
+    <div class="maphead">Map Area · top view</div>
+    <div class="mapbox">
+      <canvas id="map"></canvas>
+      <div id="menu"></div>
+      <div id="tooltip"></div>
+      <div id="stepper"></div>
+      <div id="startoverlay">
+        <div class="box">
+          <div class="ttl">Mission ready</div>
+          <div class="sub">Boats and USVs are in their starting positions.<br>Begin when ready.</div>
+          <button id="startbtn">▶ Start Simulation</button>
+        </div>
+      </div>
+    </div>
+    <div class="legend" style="padding:8px 4px;">
+      <span><span class="dot" style="background:var(--enemy)"></span>enemy</span>
+      <span><span class="dot" style="background:var(--friendly)"></span>friendly</span>
+      <span><span class="dot" style="background:var(--civilian)"></span>civilian</span>
+      <span><span class="dot" style="background:var(--unknown)"></span>unknown</span>
+    </div>
+
+    <!-- MESSAGE BOX -->
+    <div class="card msgbox">
+      <div class="msghead">
+        <span class="panelhead">Message Box</span>
+        <span class="panelhead">Incoming messages</span>
+      </div>
+      <div class="msggrid">
+        <div class="msgcompose">
+          <div id="recipients" class="recipients"></div>
+          <div id="msgthread" class="msgthread"></div>
+          <div class="msginput">
+            <input id="msgtext" type="text" placeholder="Message selected…" autocomplete="off">
+            <button id="msgsend">Send</button>
+          </div>
+        </div>
+        <div class="msgincoming">
+          <div id="incominglist" class="incominglist"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <div class="panelhead">Contacts</div>
+      <div class="scroll" style="flex:1;min-height:0;overflow:auto;">
+        <table id="op-table">
+          <thead><tr><th>ID</th><th>Label</th><th>Tier</th><th>Preview</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="panelhead">Health &amp; Status</div>
+      <div class="hrow hhead">
+        <div>USV</div><div>Fuel</div><div style="text-align:center">Comms</div>
+        <div style="text-align:center">Agent</div><div style="text-align:center">RTB</div>
+      </div>
+      <div id="healthlist" class="healthlist"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('map');
+const ctx = cv.getContext('2d');
+const menu = document.getElementById('menu');
+const tooltip = document.getElementById('tooltip');
+let speedPillRect = null;   // screen rect of the manual USV's speed pill (hit-test)
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+let state = null;
+let hoverBoat = null;
+
+const COLORS = {
+  enemy:'#ff5a6e', friendly:'#3fc7ff', civilian:'#8aa0b8', unknown:'#ffd23f'
+};
+
+// ---- websocket ----
+const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+const sock = new WebSocket(`${proto}://${location.host}/ws`);
+sock.onmessage = (e) => {
+  state = JSON.parse(e.data); window.state = state;
+  // START GATE: show the overlay while awaiting_start; hide once the run begins
+  if (state.awaiting_start){ document.getElementById('startoverlay').style.display='flex'; }
+  else if (state.now_min > 0){ document.getElementById('startoverlay').style.display='none'; }
+  // VIDEO RECORDING: trigger armed auto-start on the first sim frame
+  if (!window.__simStarted && state.now_min > 0){ window.__simStarted = true; if (window.__onSimStart) window.__onSimStart(); }
+  document.getElementById('pausedbadge').style.display = state.paused ? 'inline-block' : 'none';
+  if (state.messages && state.messages.length){ ingestMessages(state.messages); }
+  if (typeof renderRecipients === 'function') renderRecipients();
+  draw(); updatePanels();
+};
+
+// START GATE: begin the run when the operator clicks Start
+document.getElementById('startbtn').addEventListener('click', ()=>{
+  document.getElementById('startoverlay').style.display='none';
+  if (sock.readyState === 1) sock.send(JSON.stringify({ action:'start' }));
+});
+
+// ---- ADMIN MENU ----
+// Settings, pause, recording and simulation speed are administrator-only. The
+// passcode is checked by the SERVER (/admin/unlock), which returns a session
+// token; admin commands carry that token and the server ignores them without
+// it. The menu locks again whenever it is closed, and every page load starts
+// locked.
+let adminToken = null;
+function adminSend(obj){
+  if (!adminToken || sock.readyState !== 1) return;
+  sock.send(JSON.stringify({ ...obj, admin_token: adminToken }));
+}
+(function(){
+  const btn = document.getElementById('adminbtn');
+  const panel = document.getElementById('adminpanel');
+  const modal = document.getElementById('adminmodal');
+  const pass = document.getElementById('adminpass');
+  const err = document.getElementById('adminerr');
+  fetch('/admin/lock', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' })
+    .catch(()=>{});                                   // start every page load locked
+  function openPanel(){ panel.classList.add('show'); btn.classList.add('open'); btn.textContent='🔓 ADMIN'; }
+  function lockAndClose(){
+    const t = adminToken; adminToken = null;
+    panel.classList.remove('show'); btn.classList.remove('open'); btn.textContent='🔒 ADMIN';
+    fetch('/admin/lock', { method:'POST', headers:{'Content-Type':'application/json'},
+                           body: JSON.stringify({ token:t }) }).catch(()=>{});
+  }
+  function askPasscode(){ err.textContent=''; pass.value=''; modal.classList.add('show'); setTimeout(()=>pass.focus(), 30); }
+  async function tryUnlock(){
+    err.textContent = 'Checking…';
+    try{
+      const r = await fetch('/admin/unlock', { method:'POST', headers:{'Content-Type':'application/json'},
+                                               body: JSON.stringify({ passcode: pass.value }) });
+      const d = await r.json();
+      if (r.ok && d.ok){ adminToken = d.token; pass.value=''; modal.classList.remove('show'); openPanel(); }
+      else { err.textContent = 'Incorrect passcode'; pass.select(); }
+    } catch(e){ err.textContent = 'Server not reachable'; }
+  }
+  btn.addEventListener('click', ()=>{ panel.classList.contains('show') ? lockAndClose() : askPasscode(); });
+  document.getElementById('adminlock').addEventListener('click', lockAndClose);
+  document.getElementById('adminok').addEventListener('click', tryUnlock);
+  document.getElementById('admincancel').addEventListener('click', ()=>{ pass.value=''; modal.classList.remove('show'); });
+  pass.addEventListener('keydown', (e)=>{ if (e.key==='Enter') tryUnlock(); if (e.key==='Escape') modal.classList.remove('show'); });
+  // clicking anywhere outside the open panel closes AND locks it
+  document.addEventListener('mousedown', (e)=>{
+    if (panel.classList.contains('show') && !panel.contains(e.target) && e.target !== btn) lockAndClose();
+  });
+  // leaving for the settings page keeps the cookie (the settings page needs it)
+  document.getElementById('settingslink').addEventListener('click', ()=>{ adminToken = null; });
+})();
+// ---- END ADMIN MENU ----
+
+// ---- SPEED CONTROL (1x = real time) ----
+(function(){
+  const sl = document.getElementById('speed');
+  const lab = document.getElementById('speedval');
+  if (!sl) return;
+  const apply = ()=>{
+    const m = parseFloat(sl.value);
+    lab.innerHTML = m.toFixed(2).replace(/\.?0+$/,'') + '&times;';
+    adminSend({ action:'set_sim_speed', mult:m });
+  };
+  sl.addEventListener('input', apply);
+})();
+// ---- END SPEED CONTROL ----
+
+// ---- PAUSE / RESUME ----
+(function(){
+  const btn = document.getElementById('pausebtn');
+  if (!btn) return;
+  let paused = false;
+  btn.addEventListener('click', ()=>{
+    paused = !paused;
+    btn.classList.toggle('paused', paused);
+    btn.textContent = paused ? '▶ RESUME' : '⏸ PAUSE';
+    adminSend({ action:'set_paused', paused });
+  });
+})();
+// ---- END PAUSE / RESUME ----
+
+// ---- VIDEO RECORDING (direct canvas capture — no screen-share prompt) ----
+(function(){
+  const btn = document.getElementById('recbtn');
+  if (!btn) return;
+  let recorder = null, chunks = [], stream = null, armed = false, started = false;
+
+  function beginCapture(){
+    const cvEl = document.getElementById('map');
+    if (!cvEl || !cvEl.captureStream){ return false; }
+
+    // QUALITY: super-sample the canvas to a higher internal resolution FIRST,
+    // draw a frame, THEN grab the stream — grabbing before resizing can break
+    // the capture (the stream would reference the old backing store).
+    window.__renderScale = 2;           // 2x super-sampling (sharp, encoder-safe)
+    if (typeof fit === 'function') fit();
+
+    try {
+      stream = cvEl.captureStream(30);  // 30 fps: reliable; 60 can overload encoder
+      chunks = [];
+      const prefs = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+      let mime = prefs.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
+      recorder = new MediaRecorder(stream, {
+        mimeType: mime,
+        videoBitsPerSecond: 16_000_000, // 16 Mbps — high quality, well within limits
+      });
+    } catch (err) {
+      // if the browser rejects these settings, fall back to plain defaults
+      try {
+        stream = cvEl.captureStream(30);
+        recorder = new MediaRecorder(stream);
+        chunks = [];
+      } catch (e2) { window.__renderScale = 1; if (typeof fit==='function') fit(); return false; }
+    }
+
+    recorder.ondataavailable = (e)=>{ if (e.data && e.data.size) chunks.push(e.data); };
+    recorder.onerror = ()=>{ /* keep whatever we have; finalize */ stop(); };
+    recorder.onstop = ()=>{
+      if (chunks.length){
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+        a.href = url; a.download = `reschu-map-${ts}.webm`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 4000);
+      }
+      chunks = [];
+      window.__renderScale = 1;         // restore normal resolution
+      if (typeof fit === 'function') fit();
+    };
+    // emit a chunk every second so a failure doesn't lose the whole recording
+    recorder.start(1000);
+    started = true;
+    btn.classList.remove('armed'); btn.classList.add('recording');
+    btn.textContent = '■ STOP';
+    return true;
+  }
+
+  function stop(){
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+    if (stream) stream.getTracks().forEach(t=>t.stop());
+    stream = null; recorder = null; armed = false; started = false;
+    btn.classList.remove('recording','armed');
+    btn.textContent = '● REC';
+  }
+
+  // Canvas capture needs no permission, so this can be truly automatic: click to
+  // ARM, and recording begins by itself when the simulation starts. (Clicking
+  // while already running toggles it off.)
+  btn.addEventListener('click', ()=>{
+    if (started){ stop(); return; }
+    if (armed){ armed = false; btn.classList.remove('armed'); btn.textContent='● REC'; return; }
+    armed = true; btn.classList.add('armed'); btn.textContent = '● ARMED';
+    if (window.state && window.state.now_min > 0){ beginCapture(); }
+  });
+
+  // hook: called by the state handler when the first sim frame arrives
+  window.__onSimStart = ()=>{ if (armed && !started){ beginCapture(); } };
+})();
+// ---- END VIDEO RECORDING ----
+
+// ---- canvas sizing (device-pixel aware) ----
+// Extra super-sampling factor applied to the canvas backing resolution. 1 =
+// normal (display-DPI). Raised while recording so the captured video is sharper.
+window.__renderScale = 1;
+
+function fit() {
+  const r = cv.getBoundingClientRect();
+  const scale = devicePixelRatio * (window.__renderScale || 1);
+  cv.width = Math.round(r.width * scale);
+  cv.height = Math.round(r.height * scale);
+  ctx.setTransform(scale,0,0,scale,0,0);
+  draw();
+}
+window.addEventListener('resize', fit);
+
+// world -> screen mapping (letterboxed to keep aspect ratio)
+function mapping() {
+  const r = cv.getBoundingClientRect();
+  const gw = state.grid.width, gh = state.grid.height;
+  const pad = 8;
+  // Fill the whole map area: use independent x/y scales so the grid stretches to
+  // cover the container (cells may be slightly non-square, but no empty margins).
+  const sx = (r.width - 2*pad) / gw;
+  const sy = (r.height - 2*pad) / gh;
+  const ox = pad, oy = pad;
+  return { s: Math.min(sx, sy), sx, sy, ox, oy,
+    X:(x)=>ox + x*sx,
+    Y:(y)=>oy + (gh - y)*sy,   // flip y so up = north
+  };
+}
+
+// draw a small pointed arrow at distance `r` from (cx,cy) in the heading
+// direction (hx,hy in world coords; y flips to screen). Shows which way an
+// entity is travelling. No-op if the heading is zero.
+// USV label shown to the operator: only manual USVs are tagged ("USV-1 · manual").
+// AI-controlled USVs show just their ID — participants are not told which kind
+// of AI teammate (MDP / LLM) drives a USV.
+function usvLabel(u){ return u.mode === 'manual' ? `${u.id} · manual` : u.id; }
+
+function drawHeadingArrow(cx, cy, hx, hy, r, color){
+  if (hx == null || hy == null) return;
+  // screen direction: world +y is up, canvas +y is down -> flip y
+  let dx = hx, dy = -hy;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return;
+  dx /= len; dy /= len;
+  const tipR = r + 9, baseR = r + 2, halfW = 4.5;
+  const tx = cx + dx*tipR,  ty = cy + dy*tipR;      // arrow tip
+  const bx = cx + dx*baseR, by = cy + dy*baseR;     // base centre
+  const px = -dy, py = dx;                           // perpendicular
+  ctx.beginPath();
+  ctx.moveTo(tx, ty);
+  ctx.lineTo(bx + px*halfW, by + py*halfW);
+  ctx.lineTo(bx - px*halfW, by - py*halfW);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1;
+  ctx.fill(); ctx.stroke();
+}
+
+function draw() {
+  if (!state) return;
+  const r = cv.getBoundingClientRect();
+  ctx.clearRect(0,0,r.width,r.height);
+  const m = mapping();
+
+  // Clip everything to the map area, so markers / rings / arrows drawn near an
+  // edge (especially the bottom, y=0) can't bleed outside the grid and leave a
+  // smudge below the map. A small outset lets markers sit right at the edge
+  // without being hard-cut, but nothing draws past the map box.
+  const _x0 = m.X(0), _y0 = m.Y(state.grid.height), _x1 = m.X(state.grid.width), _y1 = m.Y(0);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(Math.min(_x0,_x1), Math.min(_y0,_y1),
+           Math.abs(_x1-_x0), Math.abs(_y1-_y0));
+  ctx.clip();
+
+  // grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let gx=0; gx<=state.grid.width; gx+=10){
+    ctx.beginPath(); ctx.moveTo(m.X(gx),m.Y(0)); ctx.lineTo(m.X(gx),m.Y(state.grid.height)); ctx.stroke();
+  }
+  for (let gy=0; gy<=state.grid.height; gy+=10){
+    ctx.beginPath(); ctx.moveTo(m.X(0),m.Y(gy)); ctx.lineTo(m.X(state.grid.width),m.Y(gy)); ctx.stroke();
+  }
+  // border
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.strokeRect(m.X(0), m.Y(state.grid.height), state.grid.width*m.sx, state.grid.height*m.sy);
+
+  // manual-USV links: a line from the manual USV to each boat currently within
+  // its ID range and not yet correctly identified (drawn under the markers)
+  const linkList = state.manual_links || [];
+  const linkedBoatIds = new Set(linkList.map(l=>l.boat_id));
+  for (const lk of linkList) {
+    const u = state.usvs.find(x=>x.id===lk.usv_id);
+    const b = state.boats.find(x=>x.id===lk.boat_id);
+    if (!u || !b || b.left_grid) continue;
+    ctx.beginPath();
+    ctx.moveTo(m.X(u.x), m.Y(u.y)); ctx.lineTo(m.X(b.x), m.Y(b.y));
+    ctx.strokeStyle = 'rgba(90,210,255,0.9)'; ctx.lineWidth = 2.4; ctx.setLineDash([6,3]);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // agent USV -> its current target boat (persists until the agent finishes its
+  // routine). Drawn in the agent-blue, solid, to distinguish from manual links.
+  const agentLinks = state.agent_links || [];
+  for (const lk of agentLinks) {
+    const u = state.usvs.find(x=>x.id===lk.usv_id);
+    const b = state.boats.find(x=>x.id===lk.boat_id);
+    if (!u || !b || b.left_grid) continue;
+    ctx.beginPath();
+    ctx.moveTo(m.X(u.x), m.Y(u.y)); ctx.lineTo(m.X(b.x), m.Y(b.y));
+    ctx.strokeStyle = 'rgba(30,95,255,0.85)'; ctx.lineWidth = 2.0; ctx.setLineDash([2,3]);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // manual USV's active course (heading to an operator-drawn destination)
+  for (const u of state.usvs) {
+    if (u.mode==='manual' && u.destination) {
+      ctx.beginPath();
+      ctx.moveTo(m.X(u.x), m.Y(u.y));
+      ctx.lineTo(m.X(u.destination.x), m.Y(u.destination.y));
+      ctx.strokeStyle='#eaf2ff'; ctx.lineWidth=2.2; ctx.stroke();
+      // destination marker
+      ctx.beginPath(); ctx.arc(m.X(u.destination.x), m.Y(u.destination.y), 4, 0, Math.PI*2);
+      ctx.fillStyle='#eaf2ff'; ctx.fill();
+    }
+  }
+  // in-progress drag line (operator dragging a new course from the manual USV)
+  if (drag && drag.active) {
+    ctx.beginPath();
+    ctx.moveTo(m.X(drag.fromX), m.Y(drag.fromY));
+    ctx.lineTo(drag.curPx, drag.curPy);
+    ctx.strokeStyle='rgba(90,210,255,0.95)'; ctx.lineWidth=2.2; ctx.setLineDash([6,4]);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // USVs: circular marker in true blue (distinct from the friendly's cyan-blue)
+  const USV_BLUE = '#1e5fff';
+  speedPillRect = null;  // reset each draw; set when we render the manual pill
+  for (const u of state.usvs) {
+    if (u.left_grid) continue;   // returned to base: gone from the map
+    const cx=m.X(u.x), cy=m.Y(u.y);
+    const rtb = u.rtb;
+    // heading arrow (points the way it's travelling), just outside the marker
+    drawHeadingArrow(cx, cy, u.hx, u.hy, 17, rtb ? '#aab4c0' : '#eaf2ff');
+    ctx.beginPath(); ctx.arc(cx,cy,17,0,Math.PI*2);
+    ctx.fillStyle = rtb ? '#6b7280' : USV_BLUE; ctx.fill();   // gray when RTB
+    ctx.strokeStyle = rtb ? '#aab4c0' : '#eaf2ff'; ctx.lineWidth=3; ctx.stroke();
+    ctx.fillStyle = rtb ? '#aab4c0' : '#cfe0f2'; ctx.font='19px var(--sans)'; ctx.textAlign='center';
+    ctx.fillText(rtb ? `${u.id} · RTB` : usvLabel(u), cx, cy+36);
+
+    // manual USV: a clickable speed pill (double-click it to open the stepper)
+    if (u.mode==='manual') {
+      const label = `${u.speed_knots} knt`;
+      ctx.font='14px var(--sans)'; ctx.textAlign='left';
+      const tw = ctx.measureText(label).width;
+      const pad=7, ph=22, pw=tw+2*pad;
+      const px=cx-pw-16, py=cy-ph/2;   // sit just left of the USV
+      ctx.fillStyle='#12324a'; ctx.strokeStyle='rgba(90,210,255,0.6)'; ctx.lineWidth=1;
+      roundRect(ctx, px, py, pw, ph, 5); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#8fe3ff'; ctx.textBaseline='middle';
+      ctx.fillText(label, px+pad, py+ph/2); ctx.textBaseline='alphabetic';
+      speedPillRect = { x:px, y:py, w:pw, h:ph };  // for hit-testing
+    }
+  }
+
+  // boats
+  for (const b of state.boats) {
+    if (b.left_grid) continue;
+    const cx=m.X(b.x), cy=m.Y(b.y);
+    const cls = b.identified ? b.perceived_class : 'unknown';
+    const color = COLORS[cls] || COLORS.unknown;
+    // danger zone ring around the contact (keep USVs clear — an aggressive
+    // contact eliminates a USV that enters this zone)
+    // Only unknowns and enemies can be dangerous: once a contact is identified as
+    // civilian or friendly its ring is no longer drawn.
+    if (cls === 'unknown' || cls === 'enemy'){
+      const dzr = (state.danger_zone || state.identify_range);
+      ctx.beginPath(); ctx.arc(cx,cy,dzr*m.s,0,Math.PI*2);
+      ctx.strokeStyle = 'rgba(255,210,63,0.30)'; ctx.setLineDash([4,4]); ctx.lineWidth=1.2;
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    // marker shape by perceived class
+    // heading arrow just outside the marker, showing direction of travel
+    drawHeadingArrow(cx, cy, b.hx, b.hy, 16, color);
+    ctx.fillStyle = color; ctx.strokeStyle='rgba(0,0,0,0.55)'; ctx.lineWidth=1.5;
+    // Marker scheme: unknown = yellow clover "?", friendly = cyan circle "F",
+    // civilian = grey circle "C", enemy = red diamond with its tier letter.
+    if (cls==='unknown'){
+      // quatrefoil / clover: four overlapping round lobes (matches the mockup).
+      // Fill each lobe (same colour -> reads as one solid clover); a light outer
+      // stroke on each lobe gives the scalloped edge without harsh inner seams.
+      const R=11, off=8;
+      const lobes=[[cx,cy-off],[cx+off,cy],[cx,cy+off],[cx-off,cy]];
+      ctx.strokeStyle='rgba(0,0,0,0.55)'; ctx.lineWidth=2.5;
+      for (const [lx,ly] of lobes){ ctx.beginPath(); ctx.arc(lx,ly,R,0,Math.PI*2); ctx.stroke(); }
+      for (const [lx,ly] of lobes){ ctx.beginPath(); ctx.arc(lx,ly,R,0,Math.PI*2); ctx.fill(); }
+    } else {
+      ctx.beginPath();
+      if (cls==='enemy'){ // diamond
+        ctx.moveTo(cx,cy-17); ctx.lineTo(cx+17,cy); ctx.lineTo(cx,cy+17); ctx.lineTo(cx-17,cy); ctx.closePath();
+      } else { // friendly and civilian -> circle (told apart by colour and letter)
+        ctx.arc(cx,cy,14,0,Math.PI*2);
+      }
+      ctx.fill(); ctx.stroke();
+    }
+    if (cls==='unknown'){ ctx.fillStyle='#0a1420'; ctx.font='bold 18px var(--sans)';
+      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('?',cx,cy+0.5);
+      ctx.textBaseline='alphabetic'; }
+    // enemy threat tier letter
+    if (b.identified && b.perceived_class==='enemy' && b.threat_tier){
+      ctx.fillStyle='#0a1420'; ctx.font='bold 18px var(--sans)';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(b.threat_tier, cx, cy+0.5); ctx.textBaseline='alphabetic';
+    }
+    // civilian -> "C", friendly -> "F" once identified
+    if (b.identified && (b.perceived_class==='civilian' || b.perceived_class==='friendly')){
+      ctx.fillStyle='#0a1420'; ctx.font='bold 18px var(--sans)';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(b.perceived_class==='civilian' ? 'C' : 'F', cx, cy+0.5);
+      ctx.textBaseline='alphabetic';
+    }
+    // (no extra highlight ring on a boat in the manual USV's ID range: the
+    //  dashed link line from the manual USV already shows it can be identified)
+    // operator circling an enemy it identified: the ring fills over the same
+    // 1 minute an AI USV circles; it only advances while the manual USV is within
+    // identification range of the enemy
+    if (b.operator_task === 'circle'){
+      const r = 27, p = b.circle_progress || 0;
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+      ctx.strokeStyle='rgba(242,163,58,0.28)'; ctx.lineWidth=4; ctx.stroke();
+      if (p > 0){
+        ctx.beginPath(); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+p*Math.PI*2);
+        ctx.strokeStyle='#f2a33a'; ctx.lineWidth=4; ctx.stroke();
+      }
+      const secs = Math.round(p*60);
+      ctx.fillStyle='#f2a33a'; ctx.font='bold 16px var(--sans)'; ctx.textAlign='center';
+      ctx.fillText(`circling ${secs}s / 60s`, cx, cy+46);
+    }
+    // label
+    ctx.fillStyle='#b9cbe0'; ctx.font='19px var(--sans)'; ctx.textAlign='center';
+    ctx.fillText(b.id, cx, cy-22);
+  }
+
+  ctx.restore();   // end map clip region
+}
+
+// ---- hit testing for right-click ----
+function boatAt(px, py){
+  if (!state) return null;
+  const m = mapping();
+  // generous hit radius so a right-click near a (moving) boat still registers.
+  // Widened to comfortably cover the enlarged icons and a moving target.
+  let best=null, bestD=28*28;
+  for (const b of state.boats){
+    if (b.left_grid) continue;
+    const dx=px-m.X(b.x), dy=py-m.Y(b.y);
+    const d2=dx*dx+dy*dy;
+    if (d2 <= bestD){ bestD=d2; best=b; }
+  }
+  return best;
+}
+
+// is this boat within identification range of the manual USV?
+function manualInRange(b){
+  const mu = state.usvs.find(u=>u.mode==='manual');
+  if (!mu) return false;
+  const dx=b.x-mu.x, dy=b.y-mu.y;
+  return Math.hypot(dx,dy) <= state.identify_range;
+}
+
+// hit-test a USV marker (returns the USV or null)
+function usvAt(px, py){
+  if (!state) return null;
+  const m = mapping();
+  // hit area = the whole drawn marker (radius 17 + outline) plus a small margin,
+  // so a double-click anywhere on the USV counts; the closest USV wins
+  let best=null, bestD=22*22;
+  for (const u of state.usvs){
+    if (u.left_grid) continue;
+    const dx=px-m.X(u.x), dy=py-m.Y(u.y);
+    const d2=dx*dx+dy*dy;
+    if (d2 <= bestD){ bestD=d2; best=u; }
+  }
+  return best;
+}
+
+// convert screen pixel back to world coordinates
+function screenToWorld(px, py){
+  const m = mapping();
+  return { x: (px - m.ox)/m.sx, y: state.grid.height - (py - m.oy)/m.sy };
+}
+
+// ---- drag-to-move + speed stepper for the manual USV ----
+// double-click the USV body -> grab a course line and drag; double-click the
+// manual USV's speed pill -> open the speed stepper.
+let drag = null;
+function inPill(px, py){
+  return speedPillRect && px>=speedPillRect.x && px<=speedPillRect.x+speedPillRect.w
+      && py>=speedPillRect.y && py<=speedPillRect.y+speedPillRect.h;
+}
+cv.addEventListener('dblclick', (e)=>{
+  const rect = cv.getBoundingClientRect();
+  const px=e.clientX-rect.left, py=e.clientY-rect.top;
+  // speed pill first (it sits next to the USV)
+  if (inPill(px, py)){
+    e.preventDefault();
+    const mu = state.usvs.find(u=>u.mode==='manual');
+    if (mu) openStepper(px, py, mu.speed_knots);
+    return;
+  }
+  const u = usvAt(px, py);
+  if (u && u.mode==='manual'){
+    e.preventDefault();
+    // arm the course draw: the line now follows the cursor until the operator
+    // clicks a point to place the destination (see the click handler below)
+    drag = { active:true, fromX:u.x, fromY:u.y, curPx:px, curPy:py, armed:true,
+             armedAt: Date.now(), armX:px, armY:py };
+    draw();
+  } else if (u && u.mode!=='manual'){
+    e.preventDefault();
+    openAgentMenu(px, py, u);   // agent USV -> change-target option
+  }
+});
+
+// change-target menu for an agent USV
+function openAgentMenu(px, py, u){
+  menu.innerHTML = `
+    <div class="mhead">${usvLabel(u)}</div>
+    <button data-act="change">Change target</button>
+    <button data-act="cancel">Cancel</button>`;
+  menu.querySelectorAll('button').forEach(btn=>{
+    btn.onclick = (ev)=>{
+      ev.stopPropagation();
+      if (btn.dataset.act==='change'){ openTargetList(px, py, u); return; }
+      menu.style.display='none';
+    };
+  });
+  placeMenu(px, py);
+}
+function placeMenu(px, py){
+  menu.style.left = px+'px'; menu.style.top = py+'px'; menu.style.display='block';
+  // keep the whole menu inside the map
+  const host = cv.getBoundingClientRect(), r = menu.getBoundingClientRect();
+  if (r.right > host.right) menu.style.left = Math.max(0, px-(r.right-host.right)-8)+'px';
+  if (r.bottom > host.bottom) menu.style.top = Math.max(0, py-(r.bottom-host.bottom)-8)+'px';
+}
+// list every boat on the map; the operator picks the agent USV's new target
+function boatKindLabel(b){
+  if (!b.identified) return 'unknown';
+  const c = b.perceived_class;
+  if (c === 'enemy') return 'enemy' + (b.threat_tier ? ' · '+b.threat_tier : '');
+  return c;
+}
+function openTargetList(px, py, u){
+  const live = state || {};
+  const usvs = live.usvs || [], me = usvs.find(v=>v.id===u.id) || u;
+  const boats = (live.boats || []).filter(b=>!b.left_grid)
+    .map(b=>({b, d: Math.hypot(b.x-me.x, b.y-me.y)})).sort((p,q)=>p.d-q.d);
+  const rows = boats.map(({b})=>{
+    const by = usvs.filter(v=>v.id!==u.id && !v.left_grid &&
+                (v.target_id===b.id || (b.operator_task && v.mode==='manual')))
+                .map(v=>usvLabel(v)).join(', ');
+    const cur = me.target_id===b.id;
+    const note = cur ? 'current target' : (by ? 'engaged by '+by : 'free');
+    return `<button data-boat="${b.id}"${cur?' style="opacity:.6"':''}>
+      <b>${b.id}</b> <span style="color:var(--muted)">· ${boatKindLabel(b)}</span>
+      <div style="font-size:11px;color:${by&&!cur?'#e6952b':'var(--muted)'}">${note}</div></button>`;
+  }).join('');
+  menu.innerHTML = `
+    <div class="mhead">${usvLabel(u)} · new target</div>
+    <div style="max-height:320px;overflow-y:auto">${rows || '<div class="sub">no boats on the map</div>'}</div>
+    <button data-act="cancel">Cancel</button>`;
+  menu.querySelectorAll('button').forEach(btn=>{
+    btn.onclick = (ev)=>{
+      ev.stopPropagation();
+      if (btn.dataset.boat){
+        sock.send(JSON.stringify({ action:'change_target', usv_id:u.id, boat_id:btn.dataset.boat }));
+      }
+      menu.style.display='none';
+    };
+  });
+  placeMenu(px, py);
+}
+cv.addEventListener('mousemove', (e)=>{
+  const rect = cv.getBoundingClientRect();
+  const px=e.clientX-rect.left, py=e.clientY-rect.top;
+  if (drag && drag.active){
+    drag.curPx=px; drag.curPy=py; draw();
+    tooltip.style.display='none';
+    return;
+  }
+  // hover a USV -> show its speed and ETA to target
+  const u = usvAt(px, py);
+  if (u){
+    let html = `<span class="t-speed">${u.speed_knots} knt</span>`;
+    if (u.eta_min != null){
+      const total = Math.round(u.eta_min * 60);      // minutes -> seconds
+      const mm = String(Math.floor(total/60)).padStart(2,'0');
+      const ss = String(total%60).padStart(2,'0');
+      html += ` &middot; <span class="t-eta">ETA ${mm}:${ss}</span>`;
+    } else {
+      html += ` &middot; <span class="t-eta">no target</span>`;
+    }
+    tooltip.innerHTML = html;
+    tooltip.style.left = (px+14)+'px';
+    tooltip.style.top  = (py-10)+'px';
+    tooltip.style.display='block';
+  } else {
+    tooltip.style.display='none';
+  }
+});
+cv.addEventListener('mouseleave', ()=>{ tooltip.style.display='none'; });
+// place the destination on the next single click after arming the draw
+cv.addEventListener('click', (e)=>{
+  const rect = cv.getBoundingClientRect();
+  const px=e.clientX-rect.left, py=e.clientY-rect.top;
+
+  // If a course is being placed (operator double-clicked the manual USV first),
+  // this click drops the destination — keep that behaviour.
+  if (drag && drag.active) {
+    // ignore the click that's part of the arming double-click (same spot, right
+    // after arming) so we don't instantly place the destination on the USV itself
+    const dt = Date.now() - (drag.armedAt||0);
+    const near = Math.hypot(px-(drag.armX||px), py-(drag.armY||py)) < 6;
+    if (dt < 400 && near) return;
+    const w = screenToWorld(px, py);
+    sock.send(JSON.stringify({ action:'move_to', x:w.x, y:w.y }));
+    drag = null;
+    draw();
+    return;
+  }
+
+  // A click on a USV or the speed pill is (the first half of) a double-click on
+  // it: never open a nearby boat's menu, which would pop up under the cursor
+  // and swallow the second click.
+  if (usvAt(px, py) || inPill(px, py)) return;
+
+  // Otherwise: a single click on a contact that is IN RANGE of the manual USV
+  // opens the classify menu right there (no right-click needed).
+  const b = boatAt(px, py);
+  if (b && manualInRange(b)) {
+    e.stopPropagation();   // don't let the document-level handler dismiss it
+    openMenu(px, py, b);
+    return;
+  }
+});
+function endDrag(e){
+  // (legacy mouseup path kept harmless; placement happens on click now)
+  return;
+  draw();
+}
+cv.addEventListener('mouseup', endDrag);
+
+cv.addEventListener('contextmenu', (e)=>{
+  e.preventDefault();
+  // a right-click cancels any in-progress course draw, so ID always works
+  if (drag && drag.active){ drag = null; }
+  const rect = cv.getBoundingClientRect();
+  const b = boatAt(e.clientX-rect.left, e.clientY-rect.top);
+  if (!b){ menu.style.display='none'; return; }
+  openMenu(e.clientX-rect.left, e.clientY-rect.top, b);
+});
+document.addEventListener('click', ()=>{ menu.style.display='none'; });
+
+function openMenu(px, py, b){
+  const inRange = manualInRange(b);
+  const mu = state.usvs.find(u=>u.mode==='manual');
+  let distNote = '';
+  if (!inRange){
+    if (!mu){
+      distNote = '<div class="sub" style="color:var(--warn)">No manual USV (eliminated)</div>';
+    } else {
+      const d = Math.hypot(b.x-mu.x, b.y-mu.y).toFixed(1);
+      distNote = `<div class="sub" style="color:var(--warn)">Out of range — drive USV closer (${d} > ${state.identify_range})</div>`;
+    }
+  }
+  menu.innerHTML = `
+    <div class="mhead">Classify ${b.id}</div>
+    ${distNote}
+    <div class="${inRange?'':'disabled'}">
+      <button data-cls="civilian">Civilian</button>
+      <button data-cls="friendly">Friendly</button>
+      <button data-cls="enemy">Enemy</button>
+    </div>`;
+  menu.querySelectorAll('button').forEach(btn=>{
+    btn.onclick = (ev)=>{
+      ev.stopPropagation();
+      classify(b.id, btn.dataset.cls);
+      menu.style.display='none';
+    };
+  });
+  menu.style.left = (px+12)+'px'; menu.style.top = (py+12)+'px'; menu.style.display='block';
+}
+
+function classify(boat_id, perceived){
+  sock.send(JSON.stringify({ action:'classify', boat_id, perceived }));
+}
+
+// ---- speed stepper ----
+const stepper = document.getElementById('stepper');
+const SPEED_STEP = 0.5;
+let stepperSpeed = 12.0;
+function renderStepper(){
+  stepper.innerHTML = `
+    <button class="sbtn" data-dir="up">&#9650;</button>
+    <div class="sval">${stepperSpeed.toFixed(1)}</div>
+    <div class="sunit">knt</div>
+    <button class="sbtn" data-dir="down">&#9660;</button>`;
+  stepper.querySelectorAll('.sbtn').forEach(btn=>{
+    btn.onclick = (ev)=>{
+      ev.stopPropagation();
+      stepperSpeed += (btn.dataset.dir==='up' ? SPEED_STEP : -SPEED_STEP);
+      stepperSpeed = Math.max(0.5, Math.min(30, stepperSpeed));
+      sock.send(JSON.stringify({ action:'set_speed', knots: stepperSpeed }));
+      renderStepper();
+    };
+  });
+}
+function openStepper(px, py, currentSpeed){
+  stepperSpeed = currentSpeed;
+  renderStepper();
+  stepper.style.left = Math.max(4, px-108) + 'px';
+  stepper.style.top  = Math.max(4, py-40) + 'px';
+  stepper.style.display = 'block';
+}
+document.addEventListener('click', (e)=>{
+  if (!stepper.contains(e.target)) stepper.style.display='none';
+});
+
+// ---- side panels ----
+function updatePanels(){
+  if (!state) return;
+  const done = state.mission_complete;
+  // Mission clock counts UP in REAL TIME from 00:00. At slider = 1x the sim
+  // advances in real time, so this is the real elapsed watch time (the slider
+  // speeds up / slows down how fast it counts). The mission ends at the length.
+  const len = (state.mission_length_min != null) ? state.mission_length_min : 0;
+  let elapsed = (state.now_min || 0);        // minutes elapsed
+  if (elapsed > len) elapsed = len;
+  const totalSec = Math.round(elapsed * 60);
+  const mm = Math.floor(totalSec / 60);
+  const ss = totalSec % 60;
+  const elTxt = `${mm}:${ss.toString().padStart(2,'0')}`;
+  document.getElementById('clock').textContent =
+    done ? `${elTxt} · MISSION COMPLETE` : `${elTxt} elapsed`;
+  document.getElementById('clock').style.color = done ? '#42d18a' : '';
+  const kvTime = document.getElementById('kv-time'); if (kvTime) kvTime.textContent = elTxt;
+
+  const opBody = document.querySelector('#op-table tbody');
+  opBody.innerHTML='';
+  for (const b of state.boats){
+    const pc = b.identified ? b.perceived_class : 'unknown';
+    const preview = b.preview_video
+      ? `<a href="#" class="previewlink" data-vid="${b.preview_video}">▶ view</a>`
+      : '—';
+    opBody.insertAdjacentHTML('beforeend', `
+      <tr><td>${b.id}</td>
+      <td><span class="pill c-${pc}">${pc}</span></td>
+      <td>${b.threat_tier||'—'}</td>
+      <td>${preview}</td></tr>`);
+  }
+
+  renderCameras();
+  renderHealth();
+}
+
+// which camera view is selected (visual only for now)
+// which USV feed is enlarged in the Video panel (set by double-clicking a tile)
+let selectedVideoUsv = null;
+
+// crosshair colour per perceived/known status shown in the feed
+function _camAccent(u){
+  return u.rtb ? '#5b6675' : '#3aa0ff';
+}
+
+function _camStatus(u){
+  const cs = u.comms_state;
+  if (cs === 'near_edge') return {badge:'degraded', bg:'#fdeede', fg:'#b06a10'};
+  if (cs === 'out_of_range') return {badge:'no link', bg:'#fde0e0', fg:'#c02626'};
+  return {badge:'nominal', bg:'#e7f5e1', fg:'#2f7d32'};
+}
+function _crossSVG(col, vb){
+  return `<svg class="cross" viewBox="0 0 ${vb}" preserveAspectRatio="none">
+    <line x1="0" y1="25" x2="100" y2="25" stroke="#1b2735" stroke-width="0.5"/>
+    <line x1="0" y1="50" x2="100" y2="50" stroke="#1b2735" stroke-width="0.5"/>
+    <line x1="33" y1="0" x2="33" y2="75" stroke="#1b2735" stroke-width="0.5"/>
+    <line x1="66" y1="0" x2="66" y2="75" stroke="#1b2735" stroke-width="0.5"/>
+    <ellipse cx="50" cy="37" rx="7" ry="12" fill="none" stroke="${col}" stroke-width="1.2"/>
+    <line x1="50" y1="20" x2="50" y2="54" stroke="${col}" stroke-width="1.2"/>
+    <line x1="38" y1="37" x2="62" y2="37" stroke="${col}" stroke-width="1.2"/>
+  </svg>`;
+}
+
+// camera feeds only go live once the mission is actually running — before the
+// operator clicks Start (awaiting_start, or clock still at 0) the tiles stay on
+// the idle crosshair even if the backend already reports a contact in view.
+function simRunning(){ return !!(state && !state.awaiting_start && state.now_min > 0); }
+
+// build (or reuse) a camera tile for one USV. Keeps a playing <video> intact if
+// the same clip is still showing, so it doesn't restart on every frame.
+function buildTile(u, big){
+  const seen = simRunning() ? u.camera : null;   // {boat_id, video} or null
+  const offline = u.left_grid || u.rtb;
+  const tile = document.createElement('div');
+  tile.className = (big ? 'bigtile' : 'camtile') + (!big && u.id===selectedVideoUsv ? ' sel' : '');
+  tile.dataset.usv = u.id;
+  if (big){ tile.style.cssText = 'position:absolute;inset:0;'; }
+
+  if (offline){
+    tile.classList.add('offline');
+    tile.innerHTML = `<div class="cid">${big ? usvLabel(u) : u.id}</div>
+      ${big?`<div class="empty">${u.left_grid?'RTB — OFF GRID':'RETURNING TO BASE'}</div>`
+           :`<div class="noglyph"></div><div class="nolbl">${u.left_grid?'RTB — OFF GRID':'RETURNING'}</div>`}`;
+    return tile;
+  }
+  const st = _camStatus(u);
+  const label = big ? usvLabel(u) : u.id;
+  if (seen){
+    // a boat is in camera range -> play its clip
+    tile.innerHTML = `<div class="cid">${label}</div>
+      <div class="cstat" style="background:${st.bg};color:${st.fg}">contact</div>
+      <video class="camvid" data-key="${seen.video}" src="/static/video/${seen.video}"
+        muted autoplay loop playsinline
+        style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>`;
+  } else {
+    tile.innerHTML = `<div class="cid">${label}</div>
+      <div class="cstat" style="background:${st.bg};color:${st.fg}">${st.badge}</div>
+      ${_crossSVG(_camAccent(u), big?'100 56':'100 75')}`;
+  }
+  return tile;
+}
+
+// reconcile a container's tiles against the USV list, preserving live videos
+function syncTiles(container, usvs, big){
+  const have = {};
+  Array.from(container.children).forEach(t=>{ if(t.dataset && t.dataset.usv) have[t.dataset.usv]=t; });
+  const wantIds = usvs.map(u=>u.id);
+  // remove tiles for USVs no longer present (and any stray non-tile nodes)
+  Array.from(container.children).forEach(t=>{
+    if(!t.dataset || !t.dataset.usv || !wantIds.includes(t.dataset.usv)) t.remove();
+  });
+  usvs.forEach(u=>{
+    const old = have[u.id];
+    const seen = simRunning() ? u.camera : null;
+    const offline = u.left_grid || u.rtb;
+    const newKey = offline ? 'off' : (seen ? seen.video : 'idle');
+    if (old && container.contains(old)){
+      const vid = old.querySelector('video');
+      const oldKey = vid ? vid.dataset.key : (old.classList.contains('offline') ? 'off' : 'idle');
+      const selChanged = !big && ((u.id===selectedVideoUsv) !== old.classList.contains('sel'));
+      if (oldKey === newKey && !selChanged){
+        if(!big) old.classList.toggle('sel', u.id===selectedVideoUsv);
+        container.appendChild(old);   // keep order
+        return;
+      }
+      old.remove();
+    }
+    container.appendChild(buildTile(u, big));
+  });
+}
+
+function renderCameras(){
+  const grid = document.getElementById('camgrid');
+  if (!grid || !state) return;
+  syncTiles(grid, state.usvs, false);
+  renderVideo();
+}
+
+// which USV feed is enlarged in the Video panel (set by double-clicking a tile)
+// when set, the Video panel shows this specific clip (a boat's pre-ID preview)
+// instead of the live USV feed, until dismissed or another feed is enlarged.
+let previewVideoOverride = null;   // {video, boatId} or null
+
+function renderVideo(){
+  const host = document.getElementById('videoPanel');
+  if (!host || !state) return;
+
+  // preview override: show the stored pre-ID clip for a contact
+  if (previewVideoOverride){
+    const pv = previewVideoOverride;
+    // only rebuild if it changed (keep the video playing)
+    const cur = host.querySelector('video');
+    if (!cur || cur.dataset.key !== pv.video || !host.querySelector('.pvbanner')){
+      host.innerHTML = `
+        <div class="cid">${pv.boatId} · pre-ID preview</div>
+        <button class="pvclose" title="Close preview">✕</button>
+        <div class="cstat pvbanner" style="background:#e7eefc;color:#2b4a7a">preview</div>
+        <video class="camvid" data-key="${pv.video}" src="/static/video/${pv.video}"
+          muted autoplay loop playsinline
+          style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>`;
+      host.querySelector('.pvclose').onclick = ()=>{ previewVideoOverride=null; renderVideo(); };
+    }
+    return;
+  }
+
+  const u = state.usvs.find(x => x.id === selectedVideoUsv);
+  if (!u){
+    if (!host.querySelector('.vidplaceholder'))
+      host.innerHTML = `<div class="empty vidplaceholder">Double-click a camera feed to enlarge it here, or click a contact's Preview.</div>`;
+    return;
+  }
+  // reconcile a single big tile, preserving a live video if unchanged
+  syncTiles(host, [u], true);
+}
+
+// click a contact's "Preview" link -> show its pre-ID clip in the Video panel
+document.getElementById('op-table').addEventListener('click', (e)=>{
+  const a = e.target.closest('.previewlink');
+  if (!a) return;
+  e.preventDefault();
+  const row = a.closest('tr');
+  const boatId = row ? row.querySelector('td').textContent : '';
+  previewVideoOverride = { video: a.dataset.vid, boatId };
+  renderVideo();
+});
+
+// double-click a camera tile to enlarge that USV's feed in the Video panel
+document.getElementById('camgrid').addEventListener('dblclick', (e)=>{
+  const tile = e.target.closest('.camtile');
+  if (!tile) return;
+  previewVideoOverride = null;   // live feed takes over from any preview
+  selectedVideoUsv = tile.dataset.usv;
+  renderCameras();   // re-render to move the .sel highlight and update the video
+});
+
+function renderHealth(){
+  const host = document.getElementById('healthlist');
+  if (!host || !state) return;
+  host.innerHTML = '';
+  for (const u of state.usvs){
+    const gone = u.left_grid;                       // exited after RTB -> grey row
+    const fuel = Math.max(0, Math.round(u.fuel_pct));
+    // single battery cell: fill width = fuel%, colour green >50, yellow >25, red below
+    const fillCol = fuel > 50 ? '#3fbf4f' : fuel > 25 ? '#e6952b' : '#e0403f';
+    const cells = `<span class="cell"><span class="fill" style="width:${fuel}%;background:${fillCol}"></span></span>`;
+    // comms badge: R = in range (green) / E = near edge (yellow) / O = out of range (red)
+    const cs = u.comms_state;
+    let cLetter='R', cCol='#3fbf4f', cTxt='in range';
+    if (cs === 'near_edge'){ cLetter='E'; cCol='#e6952b'; cTxt='near edge'; }
+    else if (cs === 'out_of_range'){ cLetter='O'; cCol='#e0403f'; cTxt='out of range'; }
+    // engage-agent toggle: ON for agent (llm/mdp), OFF for manual. DISPLAY ONLY.
+    const on = u.agent_on;
+    const tog = `
+      <div class="agenttog" style="background:${on?'#6f4bd6':'#c2c8d0'}" title="Agent mode (from settings) — display only">
+        <span class="tlabel" style="${on?'left:6px':'right:6px'}">${on?'ON':'OFF'}</span>
+        <span class="knob" style="${on?'right:2px':'left:2px'}"></span>
+      </div>`;
+    // RTB needs a comms link and at least 20% fuel (server decides: rtb_blocked)
+    const why = u.rtb_blocked;
+    const rtbDisabled = gone || u.rtb || !!why;
+    const rtbTip = why ? `RTB not possible: ${why}` : (u.rtb ? 'Returning to base' : 'Return to base');
+    host.insertAdjacentHTML('beforeend', `
+      <div class="hrow ${gone?'gone':''}">
+        <div class="hid">${u.id}</div>
+        <div>
+          <span class="battery">${cells}<span class="nub"></span><span class="pct">${fuel}%</span></span>
+        </div>
+        <div style="display:flex;justify-content:center" title="${cTxt}">
+          <div class="commsbadge" style="background:${cCol}">${cLetter}</div>
+        </div>
+        <div>${tog}</div>
+        <button class="rtbbtn" data-usv="${u.id}" title="${rtbTip}" ${rtbDisabled?'disabled':''}>RTB</button>
+      </div>`);
+  }
+}
+
+// RTB buttons: one delegated listener on the container, so it keeps working even
+// though the health rows are rebuilt on every frame.
+document.getElementById('healthlist').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.rtbbtn');
+  if (!btn || btn.disabled) return;
+  const id = btn.dataset.usv;
+  if (sock.readyState === 1) sock.send(JSON.stringify({ action:'set_rtb', usv_id:id, rtb:true }));
+});
+
+fit();
+
+// ================= MESSAGE BOX =================
+const MSG_RECIPIENTS = ["USV-1","USV-2","USV-3","USV-4","ALL USV","Agent","BGC"];
+let msgRecipient = "ALL USV";
+const seenMsgIds = new Set();
+const threadMsgs = [];
+const incomingMsgs = [];
+const SENDER_COLORS = { "USV-1":"#3a76d8","USV-2":"#e0403f","USV-3":"#3fae4a","USV-4":"#e6952b","Agent":"#6f4bd6","BGC":"#0d9488" };
+function fmtTime(mm){ const t=Math.max(0,Math.round((mm||0)*60)); return Math.floor(t/60)+":"+String(t%60).padStart(2,"0"); }
+function escapeHtml(s){ if(!s) return ""; return s.split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;"); }
+function usvOutOfRange(id){
+  const u = (window.state && window.state.usvs || []).find(x=>x.id===id);
+  return !!u && (u.left_grid || u.comms_state==='out_of_range');
+}
+function renderRecipients(){
+  const host=document.getElementById("recipients"); if(!host) return;
+  host.innerHTML = MSG_RECIPIENTS.map(r=>{
+    const oor = (r.startsWith('USV-')) && usvOutOfRange(r);
+    const sel = (r===msgRecipient && !oor) ? " sel" : "";
+    const ag = (r==="Agent") ? " agent" : "";
+    const dis = oor ? " disabled" : "";
+    return `<span class="chip${ag}${sel}${dis}" data-r="${r}"${oor?' title="Comms lost — out of range"':''}>${r}</span>`;
+  }).join("");
+}
+document.getElementById("recipients").addEventListener("click",(e)=>{
+  const chip=e.target.closest(".chip"); if(!chip) return;
+  if(chip.classList.contains("disabled")) return;   // can't select an out-of-range USV
+  msgRecipient=chip.dataset.r; renderRecipients(); document.getElementById("msgtext").focus();
+});
+function renderThread(){
+  const host=document.getElementById("msgthread"); if(!host) return;
+  host.innerHTML = threadMsgs.map(m=>{
+    if(m.sender==="Operator"){ return `<div><div class="mine">${escapeHtml(m.text)}</div><div class="meta" style="text-align:right">Operator → ${m.to||""} · ${fmtTime(m.mission_min)}</div></div>`; }
+    return `<div><div class="theirs">${escapeHtml(m.text)}</div><div class="meta">${m.sender} · ${fmtTime(m.mission_min)}</div></div>`;
+  }).join("");
+  host.scrollTop=host.scrollHeight;
+}
+function renderIncoming(){
+  const host=document.getElementById("incominglist"); if(!host) return;
+  host.innerHTML = incomingMsgs.slice().reverse().map(m=>{ return `<div class="imsg"><div class="ihead"><span class="iname">${m.sender}</span><span class="itime">${fmtTime(m.mission_min)}</span></div><div class="itext">${escapeHtml(m.text)}</div></div>`; }).join("");
+}
+function ingestMessages(msgs){
+  for(const m of msgs){ if(seenMsgIds.has(m.id)) continue; seenMsgIds.add(m.id);
+    if(m.kind==="incoming"){
+      incomingMsgs.push(m); if(incomingMsgs.length>50) incomingMsgs.shift();
+    } else {
+      // thread message: the operator's own send stays in the thread only;
+      // replies (from a USV / Agent / BGC) ALSO flow into the incoming feed.
+      threadMsgs.push(m); if(threadMsgs.length>60) threadMsgs.shift();
+      if(m.sender && m.sender!=="Operator"){
+        incomingMsgs.push(m); if(incomingMsgs.length>50) incomingMsgs.shift();
+      }
+    }
+  }
+  renderThread(); renderIncoming();
+}
+function sendMessage(){ const inp=document.getElementById("msgtext"); const text=inp.value.trim(); if(!text) return; if(sock.readyState===1){ sock.send(JSON.stringify({action:"send_message",to:msgRecipient,text})); } inp.value=""; }
+document.getElementById("msgsend").addEventListener("click", sendMessage);
+document.getElementById("msgtext").addEventListener("keydown",(e)=>{ if(e.key==="Enter") sendMessage(); });
+renderRecipients(); renderThread(); renderIncoming();
+
+</script>
+</body>
+</html>

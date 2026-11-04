@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RESCHU-MAAIT · Grid Reference</title>
+<style>
+  :root{
+    --bg:#0d1622; --panel:#132030; --edge:#213248;
+    --ink:#e8eef6; --muted:#8aa0b8; --accent:#39a0ff;
+    --sea:#0b1622; --grid-minor:#16283b; --grid-major:#2f5372; --label:#7f9bbb;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SFMono-Regular",Consolas,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  header{background:#0b1220;border-bottom:1px solid var(--edge);display:flex;align-items:center;
+    gap:14px;padding:12px 20px}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header .sub{color:var(--muted);font-size:12px}
+  .wrap{padding:16px 20px 40px}
+  .note{color:var(--muted);font-size:13px;line-height:1.5;margin:0 0 14px;max-width:1100px}
+  .note b{color:var(--ink)}
+  #gridhost{width:100%;border:1px solid var(--edge);border-radius:6px;background:var(--sea);padding:4px}
+  svg{display:block}
+</style>
+</head>
+<body>
+<header>
+  <h1>Grid Reference</h1>
+  <span class="sub">where boat &amp; USV start positions land</span>
+</header>
+<div class="wrap">
+  <p class="note">
+    Coordinates are entered as <b>(x, y)</b> in grid cells. <b>x</b> runs left → right,
+    <b>y</b> runs bottom → top (y = 0 is the bottom edge). Columns are labelled with a
+    letter and the x-cell number; rows are labelled with the y-cell number. The grid is
+    <b><span id="dims">—</span> cells</b>. Use this as a map when typing each start position on the settings page.
+  </p>
+  <div id="gridhost"></div>
+</div>
+
+<script>
+async function draw(){
+  let W=99, H=63;
+  try {
+    const cfg = await (await fetch('/config')).json();
+    if (cfg && cfg.grid){ W = cfg.grid.width|0; H = cfg.grid.height|0; }
+  } catch(e){ /* fall back to defaults */ }
+
+  document.getElementById('dims').textContent = `${W} × ${H}`;
+  document.getElementById('nm').textContent = `${(W/3).toFixed(0)} × ${(H/3).toFixed(0)}`;
+
+  const cell = 14;                 // internal viewBox units per cell (not px)
+  const padL = 42, padB = 34, padT = 22, padR = 20;
+  const gw = W*cell, gh = H*cell;
+  const svgW = gw+padL+padR, svgH = gh+padT+padB;
+  const colStep = 8;               // label a column every 8 cells (A, B, C, …)
+  const rowStep = 9;               // label a row every 9 cells
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+  // The SVG scales to fit the window via viewBox + width:100% (no fixed px size),
+  // so the ENTIRE grid is always visible however small the cells become. We size
+  // fonts/strokes in viewBox units so they scale down with everything else.
+  const fs = 12, fsMajor = 13, sw = 0.6, swMajor = 1.2;
+
+  // Fit the WHOLE grid into the available space while keeping its true aspect
+  // ratio (so cells stay square and the map looks correctly proportioned).
+  // We size by whichever of width/height is the binding constraint.
+  const aspect = svgW / svgH;                       // width : height of the drawing
+  const availH = Math.max(320, window.innerHeight - 150);  // space below the note
+  // width if height is the limit, vs the container's own width — take the smaller
+  const host = document.getElementById('gridhost');
+  const availW = Math.max(320, host.clientWidth - 8);
+  let drawW = Math.min(availW, availH * aspect);
+  let drawH = drawW / aspect;
+
+  let s = `<svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMid meet" `
+        + `width="${Math.round(drawW)}" height="${Math.round(drawH)}" style="display:block;margin:0 auto" font-family="var(--mono)">`;
+  s += `<rect x="${padL}" y="${padT}" width="${gw}" height="${gh}" fill="var(--sea)" stroke="var(--grid-major)"/>`;
+
+  // vertical lines
+  for (let x=0; x<=W; x++){
+    const px = padL + x*cell;
+    const major = (x % colStep === 0);
+    s += `<line x1="${px}" y1="${padT}" x2="${px}" y2="${padT+gh}" stroke="${major?'var(--grid-major)':'var(--grid-minor)'}" stroke-width="${major?swMajor:sw}"/>`;
+  }
+  // horizontal lines (y=0 at bottom)
+  for (let y=0; y<=H; y++){
+    const py = padT + gh - y*cell;
+    const major = (y % rowStep === 0);
+    s += `<line x1="${padL}" y1="${py}" x2="${padL+gw}" y2="${py}" stroke="${major?'var(--grid-major)':'var(--grid-minor)'}" stroke-width="${major?swMajor:sw}"/>`;
+  }
+  // column labels along the top
+  let li = 0;
+  for (let x=0; x<=W; x+=colStep){
+    const px = padL + x*cell;
+    const lab = (letters[li]||'') + '·' + x;
+    s += `<text x="${px+2}" y="${padT-5}" fill="var(--label)" font-size="${fsMajor}">${lab}</text>`;
+    li++;
+  }
+  // row labels down the left, y=0 at bottom
+  for (let y=0; y<=H; y+=rowStep){
+    const py = padT + gh - y*cell;
+    s += `<text x="6" y="${py+4}" fill="var(--label)" font-size="${fsMajor}">${y}</text>`;
+  }
+  // axis captions
+  s += `<text x="${padL+gw/2}" y="${svgH-8}" fill="#9fb4c9" font-size="${fsMajor}" text-anchor="middle">x  (0 – ${W} cells)</text>`;
+  s += `<text x="14" y="${padT+gh/2}" fill="#9fb4c9" font-size="${fsMajor}" transform="rotate(-90 14 ${padT+gh/2})" text-anchor="middle">y  (0 – ${H} cells)</text>`;
+  s += `</svg>`;
+
+  host.innerHTML = s;
+}
+draw();
+// keep the whole grid fitted (and correctly shaped) when the window resizes
+let _rt=null;
+window.addEventListener('resize', ()=>{ clearTimeout(_rt); _rt=setTimeout(draw, 120); });
+</script>
+</body>
+</html>

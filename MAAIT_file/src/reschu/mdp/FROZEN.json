@@ -1,0 +1,55 @@
+{
+ "version": "mdp-v1.0",
+ "frozen_at": "2026-10-25T12:50:34",
+ "note": "First frozen MDP teammate: engagement MDP + gain-per-minute team assignment; default rewards; built 2026-10-25",
+ "fingerprint": "0ad176ff1fb3",
+ "files": {
+  "cue_model.json": "c6070ae7331bfe94eb8c5833c2e13b0d5f8f1a2cae1de8f3558d6620cb088f04",
+  "engagement_small.json": "60ebf91d9c59ad05dcf6b6365bd3ea1efc94456a502d9ab2388fa4478bcc9e95",
+  "engagement_medium.json": "b6c98a0bfacc2032657f5685a318c3395f4393775bef373e22ccd0bb010e1ce8",
+  "engagement_large.json": "f155e2068f76ecaff979dfd2c9222d9010bb836384dde41b5d682807a668648b"
+ },
+ "settings": {
+  "rewards": {
+   "declare": {
+    "enemy": {
+     "aggressive": 10,
+     "standoff_low": 5,
+     "standoff_med": 5,
+     "friendly": -20,
+     "civilian": -20
+    },
+    "friendly": {
+     "aggressive": -30,
+     "standoff_low": -10,
+     "standoff_med": -10,
+     "friendly": 5,
+     "civilian": -1
+    },
+    "civilian": {
+     "aggressive": -30,
+     "standoff_low": -10,
+     "standoff_med": -10,
+     "friendly": -2,
+     "civilian": 3
+    }
+   },
+   "abandon": {
+    "aggressive": -8,
+    "standoff_low": -4,
+    "standoff_med": -4,
+    "friendly": -2,
+    "civilian": -0.5
+   },
+   "usv_lost": -25,
+   "step": -0.2
+  },
+  "assignment": {
+   "ASSIGN_TICKS": 10,
+   "SWITCH_MARGIN": 1.0,
+   "RATE_FLOOR_MIN": 0.5,
+   "ESCORT_MIN": 2.0,
+   "FAR_REF_RATIO": 3.75
+  }
+ }
+}
