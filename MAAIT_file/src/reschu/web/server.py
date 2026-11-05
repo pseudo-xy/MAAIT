@@ -74,6 +74,7 @@ def _write_results_csv(world, config: dict,
     """Write the results CSVs for a finished run (regardless of the REC button):
       * results-{ts}-contacts.csv  : one row per boat.
       * results-{ts}-summary.csv   : one row for the whole mission.
+      * results-{ts}-setup.csv     : the experiment set-up (all settings).
       * results-{ts}-timesteps.csv : one row per USV per tick (mode + activity).
       * results-{ts}-operator.csv  : one row per operator action.
       * results-{ts}-mdp_decisions.csv : one row per MDP decision / assignment
@@ -193,6 +194,11 @@ def _write_results_csv(world, config: dict,
 
     out_names = {"contacts": contacts_name, "summary": summary_name}
 
+    # ---- experiment set-up: everything set on the settings page for this run ----
+    setup_name = f"results-{ts}-setup.csv"
+    _write_setup_csv(RESULTS_DIR / setup_name, world, config, ts)
+    out_names["setup"] = setup_name
+
     # ---- per-USV per-tick timestep log ----
     if timestep_log:
         ts_name = f"results-{ts}-timesteps.csv"
@@ -223,6 +229,65 @@ def _write_results_csv(world, config: dict,
         out_names["mdp_decisions"] = dec_name
 
     return out_names
+
+
+def _flatten_setting(prefix: str, value, out: list) -> None:
+    """Flatten nested settings into (name, value) pairs:
+    {"a": {"b": 1}} -> a.b ; lists -> name[1], name[2] ... (1-based)."""
+    if isinstance(value, dict):
+        for k, v in value.items():
+            _flatten_setting(f"{prefix}.{k}" if prefix else str(k), v, out)
+    elif isinstance(value, list) and any(isinstance(v, (dict, list)) for v in value):
+        for i, v in enumerate(value, 1):
+            _flatten_setting(f"{prefix}[{i}]", v, out)
+    elif isinstance(value, list):
+        out.append((prefix, "|".join(str(v) for v in value)))
+    else:
+        out.append((prefix, "" if value is None else value))
+
+
+def _write_setup_csv(path, world, config: dict, ts: str) -> None:
+    """One file with the whole experiment set-up of a run, one setting per row:
+    section (run / mission / usv / boat), item (USV or boat id), setting, value.
+    Written from the scenario config the run was built from, so any setting
+    added to the settings page later is included automatically."""
+    import csv
+    rows: list[dict] = []
+
+    def add(section, item, pairs):
+        for k, v in pairs:
+            rows.append({"section": section, "item": item, "setting": k, "value": v})
+
+    add("run", "", [("timestamp", ts), *_mdp_version_fields(world).items()])
+    general = {k: v for k, v in config.items() if k not in ("usvs", "boats")}
+    pairs: list = []
+    _flatten_setting("", general, pairs)
+    add("mission", "", pairs)
+    usv_ids = [u.id for u in world.usvs]
+    for i, uc in enumerate(config.get("usvs", []) or []):
+        pairs = []
+        _flatten_setting("", uc, pairs)
+        uid = usv_ids[i] if i < len(usv_ids) else f"USV-{i + 1}"
+        # what the run actually used, defaults filled in (a setting left blank
+        # on the settings page still shows its value here)
+        u = world.usvs[i] if i < len(world.usvs) else None
+        if u is not None:
+            pairs.append(("used.fuel_start_pct", uc.get("fuel_start", 100.0)))
+            pairs.append(("used.mode_timeline", " ; ".join(
+                f"{b['start_min']:g}-{b['end_min']:g} min {getattr(b['mode'], 'value', b['mode'])}"
+                for b in u.mode_schedule) or f"whole mission {uc.get('mode', '')}"))
+            pairs.append(("used.comms_windows", " ; ".join(
+                " ".join(f"{k}={getattr(v, 'value', v)}" for k, v in w.model_dump().items())
+                for w in u.comms_schedule.windows) or "in_range whole mission"))
+        add("usv", uid, pairs)
+    for i, bc in enumerate(config.get("boats", []) or []):
+        pairs = []
+        _flatten_setting("", bc, pairs)
+        add("boat", f"B{i + 1}", pairs)
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["section", "item", "setting", "value"])
+        w.writeheader()
+        w.writerows(rows)
 
 
 def _time_to_id(b):
