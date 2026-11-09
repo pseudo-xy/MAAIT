@@ -68,6 +68,21 @@ RESULTS_DIR = DATA_DIR / "results"
 CONFIG_FILE = DATA_DIR / "scenario_config.json"
 
 
+def _clear_previous_results() -> int:
+    """Delete every results CSV already in RESULTS_DIR, so the results folder
+    (and ⬇ DOWNLOAD RESULTS) only ever holds the latest run. Called when a
+    simulation is started. Returns how many files were removed."""
+    n = 0
+    if RESULTS_DIR.exists():
+        for f in RESULTS_DIR.glob("results-*.csv"):
+            try:
+                f.unlink()
+                n += 1
+            except OSError:
+                pass
+    return n
+
+
 def _write_results_csv(world, config: dict,
                        timestep_log: list | None = None,
                        operator_log: list | None = None) -> dict | None:
@@ -1097,6 +1112,9 @@ async def ws(sock: WebSocket) -> None:
                         _log_op("", "message", f"to {to}: {text}")
                 # ------------------------------------------------------------ #
                 elif action == "start":
+                    # a new run replaces the previous run's results
+                    if not start_event.is_set():
+                        _clear_previous_results()
                     start_event.set()   # operator pressed Start Simulation
         except WebSocketDisconnect:
             engine.stop()
