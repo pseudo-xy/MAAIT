@@ -259,6 +259,7 @@ _SCRIPTED = ScriptedPolicy()
 _POLICIES: dict[USVMode, Policy] = {
     USVMode.LLM: LLMPolicy(),
     USVMode.MDP: MDPPolicy(),
+    USVMode.GREEDY: _SCRIPTED,     # the greedy baseline (nearest boat); its wrong IDs: identification.py
 }
 
 

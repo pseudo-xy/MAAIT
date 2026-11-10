@@ -10,6 +10,11 @@ Rules:
     and the engine applies it via apply_declarations(), only while the boat is
     inside ID range. The declared class may be wrong — that error is the MDP's
     own, never injected noise.
+  * GREEDY-mode USVs identify in-range boats automatically like LLM ones, but a
+    set number of their identifications per mission are WRONG
+    (World.greedy_wrong_ids, shared by all greedy USVs; see plan_greedy_errors).
+    A label a greedy USV gives sticks: other greedy/LLM USVs do not re-check it,
+    so a wrong label stays until the operator relabels the boat.
   * MANUAL-mode USVs identify only on an explicit operator action; the operator
     can pick a wrong class.
 
@@ -48,7 +53,53 @@ def _needs_identification(boat) -> bool:
     return not boat.is_correctly_identified()
 
 
-def auto_identify(world: World, rng: random.Random | None = None) -> list[str]:
+_OTHER_LABELS = {
+    Perception.ENEMY: (Perception.FRIENDLY, Perception.CIVILIAN),
+    Perception.FRIENDLY: (Perception.ENEMY, Perception.CIVILIAN),
+    Perception.CIVILIAN: (Perception.ENEMY, Perception.FRIENDLY),
+}
+
+
+def plan_greedy_errors(world: World, rng: random.Random) -> None:
+    """Decide at mission start WHICH greedy identifications will be wrong.
+
+    N = world.greedy_wrong_ids wrong labels are spread at random over the greedy
+    USVs' identifications: N distinct positions are drawn from 1..M, where M is
+    the number of contacts not known at the start, and the greedy ID with that
+    running number (1st, 2nd, ...) is the wrong one. If the mission is running
+    out of contacts before the plan is used up, the remaining wrong IDs are
+    made on the next greedy identifications (catch-up), so the set number is
+    reached whenever the greedy USVs make at least that many identifications.
+    """
+    world.greedy_ids_made = 0
+    world.greedy_wrong_made = 0
+    n = max(0, int(world.greedy_wrong_ids))
+    if n == 0 or not any(u.mode is USVMode.GREEDY or USVMode.GREEDY in
+                         [b["mode"] for b in u.mode_schedule] for u in world.usvs):
+        world.greedy_error_plan = []
+        return
+    m = max(n, sum(1 for b in world.boats if not b.identified))
+    world.greedy_error_plan = sorted(rng.sample(range(1, m + 1), n))
+
+
+def _greedy_label(world: World, boat, rng: random.Random) -> Perception | None:
+    """Label for this greedy identification: None = correct, else a wrong class."""
+    world.greedy_ids_made += 1
+    left = world.greedy_wrong_ids - world.greedy_wrong_made
+    if left <= 0:
+        return None
+    # boats still to be identified, this one included: if no more than the wrong
+    # IDs still owed, this one must be wrong (catch-up)
+    remaining = sum(1 for b in world.boats if not b.left_grid and not b.identified)
+    if world.greedy_ids_made not in world.greedy_error_plan and left < remaining:
+        return None
+    world.greedy_wrong_made += 1
+    truth = Perception.from_classification(boat.true_class)
+    return rng.choice(_OTHER_LABELS[truth])
+
+
+def auto_identify(world: World, rng: random.Random | None = None,
+                  greedy_rng: random.Random | None = None) -> list[str]:
     """Agent-mode USVs attempt to identify boats in range that are not yet
     correctly identified. Returns the list of boat ids attempted this call.
 
@@ -65,15 +116,24 @@ def auto_identify(world: World, rng: random.Random | None = None) -> list[str]:
             continue
         if usv.mode is USVMode.MDP:
             continue  # the MDP declares classes itself (see apply_declarations)
+        greedy = usv.mode is USVMode.GREEDY
         for boat in world.boats:
             if not _needs_identification(boat):
                 continue
+            if boat.identified and boat.identified_by_mode in ("greedy", "llm"):
+                continue  # a greedy/LLM label sticks (only the operator relabels)
             if boat.id in usv.attempted_boat_ids:
                 continue  # this USV already tried this boat; don't re-roll
             if not _in_range(usv, boat.position, world.grid):
                 continue
             usv.attempted_boat_ids.append(boat.id)
-            boat.identify()  # no injected error; wrong IDs come from the agent's own decisions
+            if greedy:
+                wrong = _greedy_label(world, boat, greedy_rng or random.Random())
+                boat.identify(as_class=wrong)
+                boat.greedy_wrong = wrong is not None
+            else:
+                boat.identify()  # LLM stub: always correct
+            boat.identified_by_mode = usv.mode.value
             attempted.append(boat.id)
     return attempted
 
@@ -107,6 +167,7 @@ def apply_declarations(world: World) -> list[str]:
         if not _in_range(usv, boat.position, world.grid):
             continue
         boat.identify(as_class=as_class)
+        boat.identified_by_mode = "mdp"
         if boat.id not in usv.attempted_boat_ids:
             usv.attempted_boat_ids.append(boat.id)
         declared.append(boat.id)
@@ -135,6 +196,7 @@ def manual_identify(
     if as_class is Perception.UNKNOWN:
         return False  # "Unknown" = operator declines to classify -> no-op
     boat.identify(as_class=as_class)
+    boat.identified_by_mode = "manual"
     # the operator now handles it manually: follow a friendly out / circle an enemy
     from .manual_engagement import claim
     claim(world, usv, boat, world.mission_time_min)

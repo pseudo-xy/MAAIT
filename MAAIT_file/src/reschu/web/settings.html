@@ -132,6 +132,11 @@
             <input type="number" id="missionMin" min="1" value="20">
           </div>
           <div class="field">
+            <label>Greedy: wrong IDs per mission</label>
+            <input type="number" id="greedyWrong" min="0" max="15" step="1" value="0">
+            <div class="note" style="margin-top:3px">Total wrong identifications made by all <b>Greedy</b> USVs together in one mission. Every other greedy ID is correct.</div>
+          </div>
+          <div class="field">
             <label>Map size</label>
             <select id="mapSize">
               <option value="small">Small — 25 × 40 cells</option>
@@ -204,7 +209,7 @@
 <div id="toast"></div>
 
 <script>
-const MODES = ["manual","llm","mdp"];
+const MODES = ["manual","llm","mdp","greedy"];
 const TYPES = ["enemy","friendly","civilian"];
 const BEHAVIORS = ["aggressive","standoff","civilian","friendly"];
 const TIERS = ["low","med"];   // tier only applies to standoff enemies (low = 4 knt, med = 9 knt)
@@ -251,6 +256,7 @@ function redrawTimelines(){ document.querySelectorAll('#usvRows .usvrow').forEac
 const TL_MODES = [
   {key:'llm',    label:'LLM',    color:'#3a76d8'},
   {key:'mdp',    label:'MDP',    color:'#6f4bd6'},
+  {key:'greedy', label:'Greedy', color:'#c98a1f'},
   {key:'manual', label:'Manual', color:'#8a96a3'},
 ];
 function tlModeColor(k){ const m=TL_MODES.find(x=>x.key===k); return m?m.color:'#8a96a3'; }
@@ -259,8 +265,11 @@ function tlModeLabel(k){ const m=TL_MODES.find(x=>x.key===k); return m?m.label:k
 function usvRow(u, i){
   const mission = parseFloat(document.getElementById('missionMin')?.value)||20;
   // enabled modes for this USV (default all three). Keep in canonical order.
-  const ORDER = ['llm','mdp','manual'];
-  let enabled = (u.modes && u.modes.length) ? ORDER.filter(m=>u.modes.includes(m)) : ORDER.slice();
+  const ORDER = ['llm','mdp','greedy','manual'];
+  // a new row starts with LLM / MDP / Manual ticked; Greedy is ticked by choice
+  let enabled = (u.modes && u.modes.length) ? ORDER.filter(m=>u.modes.includes(m))
+              : (u.mode && ORDER.includes(u.mode) && !u.timeline) ? [u.mode]
+              : ['llm','mdp','manual'];
   if (!enabled.length) enabled = ['manual'];
 
   // segments follow the enabled modes: one segment per enabled mode, in order,
@@ -616,6 +625,7 @@ function collect(){
     grid: {width: parseFloat(document.getElementById("gridW").value)||99,
            height: parseFloat(document.getElementById("gridH").value)||63},
     mission_minutes: Math.max(1, parseFloat(document.getElementById("missionMin").value)||20),
+    greedy_wrong_ids: Math.max(0, parseInt(document.getElementById("greedyWrong").value)||0),
     usvs: usvs.slice(0, MAX_USVS),
     boats: boats.slice(0, MAX_BOATS),
   };
@@ -711,6 +721,7 @@ async function load(){
   document.getElementById('mapSize').value = key;
   applyMapSize(key, {rescale:false});   // set the recommendation, keep saved positions
   document.getElementById('missionMin').value=cfg.mission_minutes||20;
+  document.getElementById('greedyWrong').value=cfg.greedy_wrong_ids||0;
   updateMissionNote();
   document.getElementById('numUsvs').value=(cfg.usvs||[]).length;
   document.getElementById('numBoats').value=(cfg.boats||[]).length;

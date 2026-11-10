@@ -111,7 +111,7 @@ def _write_results_csv(world, config: dict,
         "identified", "perceived_class", "correct", "id_attempts",
         "first_identified_min", "outcome", "escort_start_min", "escort_end_min",
         "spawned_min", "known_at_start", "time_to_id_min",
-        "claimed_by_operator_usv",
+        "claimed_by_operator_usv", "identified_by", "greedy_planned_wrong",
     ]
     rows = []
     for b in boats:
@@ -147,6 +147,10 @@ def _write_results_csv(world, config: dict,
             # from when the contact APPEARED; blank for pre-known contacts
             "time_to_id_min": _time_to_id(b),
             "claimed_by_operator_usv": b.claimed_by or "",
+            # who gave the label: manual / mdp / greedy / llm ("" = known at start)
+            "identified_by": (b.identified_by_mode or ("" if b.known_at_start else "manual"))
+                             if b.identified else "",
+            "greedy_planned_wrong": int(b.greedy_wrong),
         })
     with (RESULTS_DIR / contacts_name).open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=contact_fields)
@@ -200,6 +204,9 @@ def _write_results_csv(world, config: dict,
         "mean_time_to_id_min": mean_id,
         "median_time_to_id_min": median_id,
         "usvs_lost": usvs_eliminated,
+        "greedy_wrong_ids_set": world.greedy_wrong_ids,
+        "greedy_ids_made": world.greedy_ids_made,
+        "greedy_wrong_ids_made": world.greedy_wrong_made,
         **_mdp_version_fields(world),
     }
     with (RESULTS_DIR / summary_name).open("w", newline="") as f:

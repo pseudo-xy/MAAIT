@@ -239,6 +239,9 @@ class Boat(BaseModel):
             return False          # the operator's manual USV is handling it
         return True
 
+    identified_by_mode: str | None = None   # mode of the USV that labelled it (None = operator / known)
+    greedy_wrong: bool = False              # labelled wrongly on purpose by a greedy USV
+
     def identify(self, as_class: Perception | None = None) -> None:
         """Record an identification of this boat.
 
@@ -459,6 +462,13 @@ class World(BaseModel):
     # (mdp/assignment.py; total gain, or gain per minute of USV time);
     # "nearest" = the engine's closest-unworked-boat rule.
     mdp_assignment: str = "rate"
+    # Greedy mode: how many of the greedy USVs' identifications in this mission
+    # are WRONG, counted over all greedy USVs together (settings page). The
+    # engine picks which ones at the start (identification.plan_greedy_errors).
+    greedy_wrong_ids: int = 0
+    greedy_error_plan: list[int] = Field(default_factory=list)   # which greedy IDs (1st, 2nd, ...) are wrong
+    greedy_ids_made: int = 0          # greedy identifications so far
+    greedy_wrong_made: int = 0        # of which wrong
 
     def usv(self, usv_id: str) -> USV | None:
         return next((u for u in self.usvs if u.id == usv_id), None)

@@ -80,6 +80,10 @@ class SimulationEngine:
         for u in world.usvs:
             if u.start_pos is None:
                 u.start_pos = u.position
+        # separate stream for which greedy identifications are wrong
+        self.greedy_rng = random.Random(None if seed is None else seed * 15485863 + 7)
+        from .identification import plan_greedy_errors
+        plan_greedy_errors(world, self.greedy_rng)
         if assign_at_start:
             assign_all(world)
 
@@ -218,7 +222,7 @@ class SimulationEngine:
         #        (in range only; the declared class may be wrong — the MDP's call)
         apply_declarations(w)
         #    5b) LLM USVs: auto-identify boats now in range
-        auto_identify(w, self.rng)
+        auto_identify(w, self.rng, self.greedy_rng)
 
         # stamp the time of FIRST identification on any boat just identified
         for boat in w.boats:

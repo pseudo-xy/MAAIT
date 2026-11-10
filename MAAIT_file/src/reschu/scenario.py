@@ -286,6 +286,7 @@ _MODE_BY_NAME = {
     "manual": USVMode.MANUAL,
     "llm": USVMode.LLM,
     "mdp": USVMode.MDP,
+    "greedy": USVMode.GREEDY,
 }
 # tier -> standoff speed (only meaningful for standoff boats)
 # Default boat speed variation for config-built scenarios (see World.speed_spread
@@ -499,6 +500,12 @@ def world_from_config(cfg: dict) -> World:
             boat.known_at_start = True
         boats.append(boat)
 
+    def _count(key):
+        try:
+            return max(0, int(float(cfg.get(key, 0) or 0)))
+        except (TypeError, ValueError):
+            return 0
+
     def _frac(key, default):
         try:
             return max(0.0, float(cfg.get(key, default)))
@@ -509,7 +516,8 @@ def world_from_config(cfg: dict) -> World:
                  speed_jitter=_frac("speed_jitter", DEFAULT_SPEED_JITTER),
                  sensor_noise=_frac("sensor_noise", DEFAULT_SENSOR_NOISE),
                  visual_cue=bool(cfg.get("visual_cue", True)),
-                 mdp_assignment=_mdp_assignment(cfg.get("mdp_assignment", "rate")))
+                 mdp_assignment=_mdp_assignment(cfg.get("mdp_assignment", "rate")),
+                 greedy_wrong_ids=_count("greedy_wrong_ids"))
 
 
 def default_config() -> dict:

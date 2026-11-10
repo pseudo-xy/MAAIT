@@ -102,7 +102,10 @@ def threat_for_behavior(behavior: Behavior, speed_knots: float | None = None) ->
 # for now; a run may mix modes across USVs):
 #   - MANUAL : operator-driven (straight-line travel, operator interception)
 #   - LLM    : driven by the LLM agent (not trained/connected yet -> stub)
-#   - MDP    : driven by the MDP agent (not trained/connected yet -> stub)
+#   - MDP    : driven by the MDP agent (solved engagement MDP, reschu.mdp)
+#   - GREEDY : greedy baseline: nearest free boat, instant identification, with
+#              a set number of WRONG identifications per mission
+#              (World.greedy_wrong_ids, shared by all greedy USVs)
 # Identification: LLM/MDP USVs auto-identify nearby boats; MANUAL needs the
 # operator action. The untrained LLM/MDP stubs currently run on a shared internal
 # baseline so the sim still works; that baseline is not a selectable mode.
@@ -111,10 +114,11 @@ class USVMode(str, Enum):
     MANUAL = "manual"
     LLM = "llm"
     MDP = "mdp"
+    GREEDY = "greedy"
 
     def is_agent(self) -> bool:
-        """True if this mode is an autonomous agent (LLM or MDP), not manual."""
-        return self in (USVMode.LLM, USVMode.MDP)
+        """True if this mode is an autonomous agent (LLM, MDP or Greedy), not manual."""
+        return self in (USVMode.LLM, USVMode.MDP, USVMode.GREEDY)
 
 
 # --------------------------------------------------------------------------- #

@@ -20,7 +20,7 @@ web/index.html     <- browser: draws the tactical map, right-click to classify
     usv_movement.py<- how USVs move (seek, circle, escort, intercept, manual)
     interception.py<- the manual-interception "will I make it?" math
     behaviors.py   <- how BOATS move (their end goals + escort-out routing)
-    identification.py <- when/how a boat gets identified (LLM auto-ID; MDP declarations)
+    identification.py <- when/how a boat gets identified (LLM/Greedy auto-ID; MDP declarations)
     mdp/              <- the MDP teammate: cue features, fitted cue model, engagement MDP
   models.py        <- the data objects: Grid, Boat, USV, World, CommsSchedule
   types.py         <- the vocabulary: enums + Vec2 geometry (bottom layer)
@@ -139,9 +139,9 @@ chosen by its type, and picks a new one on arrival. Also holds the special
 
 ## identification.py — when a boat gets identified
 
-The bridge from a boat's truth to what the operator sees. There is NO injected
-misidentification: any wrong label comes from a decision (an MDP declaration or
-an operator's call), never from a hard-coded error rate.
+The bridge from a boat's truth to what the operator sees. Wrong labels come from
+a decision (an MDP declaration or an operator's call), except for the **Greedy**
+mode, whose number of wrong IDs per mission is set on purpose in the settings.
 
 **Contains:**
 - `IDENTIFY_RANGE = 2.0` — base ID range (grid units on the Small map; scaled
@@ -149,8 +149,19 @@ an operator's call), never from a hard-coded error rate.
 - `_in_range` — the proximity check.
 - `_needs_identification` — a boat is eligible unless it's already CORRECTLY
   identified (so a wrong label can still be corrected).
-- `auto_identify(world, rng)` — LLM-mode USVs identify boats in range, always
-  correctly and immediately. MDP-mode USVs are skipped.
+- `auto_identify(world, rng, greedy_rng)` — LLM- and Greedy-mode USVs identify
+  boats in range immediately. LLM: always correct. Greedy: correct except for
+  the planned wrong ones. A label a Greedy/LLM USV gave sticks (other agent USVs
+  don't re-check it; only the operator can relabel). MDP-mode USVs are skipped.
+- `plan_greedy_errors(world, rng)` — at mission start, picks which greedy IDs
+  (1st, 2nd, ... over all greedy USVs together) will be wrong, so the mission
+  gets exactly `World.greedy_wrong_ids` wrong greedy IDs (settings page:
+  "Greedy: wrong IDs per mission"). If contacts run short, the remaining wrong
+  IDs are made on the next greedy IDs. A wrong ID gets one of the other two
+  classes at random; the boat keeps its true behavior (a friendly labelled
+  enemy is circled and eliminated, an enemy labelled civilian is left alone).
+  Logged: contacts CSV `identified_by`, `greedy_planned_wrong`; summary
+  `greedy_wrong_ids_set`, `greedy_ids_made`, `greedy_wrong_ids_made`.
 - `apply_declarations(world)` — applies each MDP USV's
   `pending_declaration = (boat_id, class)`: only inside ID range, may be WRONG
   (the MDP's own call), always consumed.
