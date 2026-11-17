@@ -103,9 +103,9 @@ def threat_for_behavior(behavior: Behavior, speed_knots: float | None = None) ->
 #   - MANUAL : operator-driven (straight-line travel, operator interception)
 #   - LLM    : driven by the LLM agent (not trained/connected yet -> stub)
 #   - MDP    : driven by the MDP agent (solved engagement MDP, reschu.mdp)
-#   - GREEDY : greedy baseline: nearest free boat, instant identification, with
-#              a set number of WRONG identifications per mission
-#              (World.greedy_wrong_ids, shared by all greedy USVs)
+#   - GREEDY : greedy baseline: nearest free boat, instant identification
+#   (the number of WRONG IDs per mission is shared by all agent USVs:
+#    World.agent_wrong_ids)
 # Identification: LLM/MDP USVs auto-identify nearby boats; MANUAL needs the
 # operator action. The untrained LLM/MDP stubs currently run on a shared internal
 # baseline so the sim still works; that baseline is not a selectable mode.

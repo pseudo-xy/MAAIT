@@ -240,7 +240,10 @@ class Boat(BaseModel):
         return True
 
     identified_by_mode: str | None = None   # mode of the USV that labelled it (None = operator / known)
-    greedy_wrong: bool = False              # labelled wrongly on purpose by a greedy USV
+    # agent identification error: None, "forced" (made wrong to reach the set
+    # number), "own" (agent's own mistake, counted toward it) or "extra"
+    # (agent's own mistake after the set number was reached)
+    id_error: str | None = None
 
     def identify(self, as_class: Perception | None = None) -> None:
         """Record an identification of this boat.
@@ -462,13 +465,17 @@ class World(BaseModel):
     # (mdp/assignment.py; total gain, or gain per minute of USV time);
     # "nearest" = the engine's closest-unworked-boat rule.
     mdp_assignment: str = "rate"
-    # Greedy mode: how many of the greedy USVs' identifications in this mission
-    # are WRONG, counted over all greedy USVs together (settings page). The
-    # engine picks which ones at the start (identification.plan_greedy_errors).
-    greedy_wrong_ids: int = 0
-    greedy_error_plan: list[int] = Field(default_factory=list)   # which greedy IDs (1st, 2nd, ...) are wrong
-    greedy_ids_made: int = 0          # greedy identifications so far
-    greedy_wrong_made: int = 0        # of which wrong
+    # How many WRONG identifications all agent-controlled USVs together (MDP,
+    # Greedy, LLM) should make in this mission (settings page). The engine plans
+    # where at the start (identification.plan_agent_errors).
+    agent_wrong_ids: int = 0
+    mission_minutes: float | None = None   # planned mission length (from the settings)
+    agent_error_plan: list[int] = Field(default_factory=list)  # which agent IDs (1st, 2nd, ...) to turn wrong
+    agent_ids_made: int = 0           # agent identifications so far
+    agent_wrong_counted: int = 0      # wrong IDs counted toward agent_wrong_ids (= forced + own)
+    agent_wrong_forced: int = 0       #   made wrong by the setting
+    agent_wrong_own: int = 0          #   the agent's own mistakes (before the number was reached)
+    agent_wrong_extra: int = 0        # agent's own mistakes AFTER the number was reached
 
     def usv(self, usv_id: str) -> USV | None:
         return next((u for u in self.usvs if u.id == usv_id), None)

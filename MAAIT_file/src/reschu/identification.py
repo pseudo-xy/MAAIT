@@ -8,13 +8,15 @@ Rules:
   * MDP-mode USVs are NOT auto-identified. Identification is one of the MDP's
     own decisions: its policy sets `usv.pending_declaration = (boat_id, class)`
     and the engine applies it via apply_declarations(), only while the boat is
-    inside ID range. The declared class may be wrong — that error is the MDP's
-    own, never injected noise.
-  * GREEDY-mode USVs identify in-range boats automatically like LLM ones, but a
-    set number of their identifications per mission are WRONG
-    (World.greedy_wrong_ids, shared by all greedy USVs; see plan_greedy_errors).
-    A label a greedy USV gives sticks: other greedy/LLM USVs do not re-check it,
-    so a wrong label stays until the operator relabels the boat.
+    inside ID range. The declared class may be wrong (the MDP's own mistake).
+  * GREEDY-mode USVs identify in-range boats automatically, like LLM ones.
+  * WRONG-ID SETTING: World.agent_wrong_ids = the number of wrong IDs wanted
+    from ALL agent USVs together (MDP, Greedy, LLM) in one mission. Correct
+    agent IDs are turned wrong at planned points until that number is reached;
+    the MDP's own mistakes count toward it. After it is reached, nothing is
+    forced, and further MDP mistakes are kept and counted as EXTRA. See
+    plan_agent_errors / _agent_label. Every agent label sticks: other agent
+    USVs never re-check it; only the operator can relabel the boat.
   * MANUAL-mode USVs identify only on an explicit operator action; the operator
     can pick a wrong class.
 
@@ -60,46 +62,80 @@ _OTHER_LABELS = {
 }
 
 
-def plan_greedy_errors(world: World, rng: random.Random) -> None:
-    """Decide at mission start WHICH greedy identifications will be wrong.
+def _uses_agents(world: World) -> bool:
+    """True if any USV is agent-controlled at some point of the mission."""
+    return any(u.mode.is_agent() or any(getattr(blk["mode"], "is_agent", lambda: False)()
+                                        for blk in u.mode_schedule)
+               for u in world.usvs)
 
-    N = world.greedy_wrong_ids wrong labels are spread at random over the greedy
-    USVs' identifications: N distinct positions are drawn from 1..M, where M is
-    the number of contacts not known at the start, and the greedy ID with that
-    running number (1st, 2nd, ...) is the wrong one. If the mission is running
-    out of contacts before the plan is used up, the remaining wrong IDs are
-    made on the next greedy identifications (catch-up), so the set number is
-    reached whenever the greedy USVs make at least that many identifications.
+
+def plan_agent_errors(world: World, rng: random.Random) -> None:
+    """Decide at mission start WHICH agent identifications will be made wrong.
+
+    World.agent_wrong_ids = N is the number of wrong identifications wanted from
+    ALL agent-controlled USVs together (MDP, Greedy, LLM) in one mission. Agent
+    IDs are numbered as they happen (1st, 2nd, ... over all agent USVs). N
+    positions are drawn at random from 1..M (M = contacts not known at the
+    start); an agent ID at one of those positions is turned wrong if it was
+    right. An MDP's OWN mistakes count toward N as they happen, so they replace
+    forced ones. If contacts are running out before N is reached, the next
+    correct agent IDs are turned wrong (catch-up). Once N is reached, nothing is
+    forced any more; an MDP mistake after that is still applied, and counted
+    separately as an EXTRA wrong ID (see _agent_label).
     """
-    world.greedy_ids_made = 0
-    world.greedy_wrong_made = 0
-    n = max(0, int(world.greedy_wrong_ids))
-    if n == 0 or not any(u.mode is USVMode.GREEDY or USVMode.GREEDY in
-                         [b["mode"] for b in u.mode_schedule] for u in world.usvs):
-        world.greedy_error_plan = []
+    world.agent_ids_made = 0
+    world.agent_wrong_counted = world.agent_wrong_forced = 0
+    world.agent_wrong_own = world.agent_wrong_extra = 0
+    n = max(0, int(world.agent_wrong_ids))
+    if n == 0 or not _uses_agents(world):
+        world.agent_error_plan = []
         return
     m = max(n, sum(1 for b in world.boats if not b.identified))
-    world.greedy_error_plan = sorted(rng.sample(range(1, m + 1), n))
+    world.agent_error_plan = sorted(rng.sample(range(1, m + 1), n))
 
 
-def _greedy_label(world: World, boat, rng: random.Random) -> Perception | None:
-    """Label for this greedy identification: None = correct, else a wrong class."""
-    world.greedy_ids_made += 1
-    left = world.greedy_wrong_ids - world.greedy_wrong_made
-    if left <= 0:
-        return None
-    # boats still to be identified, this one included: if no more than the wrong
-    # IDs still owed, this one must be wrong (catch-up)
-    remaining = sum(1 for b in world.boats if not b.left_grid and not b.identified)
-    if world.greedy_ids_made not in world.greedy_error_plan and left < remaining:
-        return None
-    world.greedy_wrong_made += 1
+# kept for older code and tests
+plan_greedy_errors = plan_agent_errors
+
+
+def _agent_label(world: World, boat, proposed: Perception,
+                 rng: random.Random) -> tuple[Perception, str | None]:
+    """The label an agent identification ends up with, and what kind of error
+    it is: None (correct), "forced" (made wrong to reach the set number),
+    "own" (the agent's own mistake, counted toward the set number) or
+    "extra" (the agent's own mistake after the set number was reached)."""
+    world.agent_ids_made += 1
     truth = Perception.from_classification(boat.true_class)
-    return rng.choice(_OTHER_LABELS[truth])
+    left = world.agent_wrong_ids - world.agent_wrong_counted
+    if proposed is not truth:                     # the agent got it wrong itself
+        if left > 0:
+            world.agent_wrong_counted += 1
+            world.agent_wrong_own += 1
+            return proposed, "own"
+        world.agent_wrong_extra += 1
+        return proposed, "extra"
+    if left <= 0:
+        return proposed, None
+    # Catch-up: make this one wrong anyway if the wrong IDs still owed are as
+    # many as the boats left to identify (this one included), or if the mission
+    # is in its last LATE_CATCH_UP share of time, so the set number is reached
+    # before time runs out.
+    remaining = sum(1 for b in world.boats if not b.left_grid and not b.identified)
+    late = (world.mission_minutes is not None and
+            world.mission_time_min >= (1 - LATE_CATCH_UP) * world.mission_minutes)
+    if world.agent_ids_made not in world.agent_error_plan and left < remaining and not late:
+        return proposed, None
+    world.agent_wrong_counted += 1
+    world.agent_wrong_forced += 1
+    return rng.choice(_OTHER_LABELS[truth]), "forced"
+
+
+_AGENT_LABELLERS = ("greedy", "llm", "mdp")
+LATE_CATCH_UP = 0.3      # last 30% of the mission: owed wrong IDs are made on the next correct agent IDs
 
 
 def auto_identify(world: World, rng: random.Random | None = None,
-                  greedy_rng: random.Random | None = None) -> list[str]:
+                  agent_rng: random.Random | None = None) -> list[str]:
     """Agent-mode USVs attempt to identify boats in range that are not yet
     correctly identified. Returns the list of boat ids attempted this call.
 
@@ -116,29 +152,28 @@ def auto_identify(world: World, rng: random.Random | None = None,
             continue
         if usv.mode is USVMode.MDP:
             continue  # the MDP declares classes itself (see apply_declarations)
-        greedy = usv.mode is USVMode.GREEDY
         for boat in world.boats:
             if not _needs_identification(boat):
                 continue
-            if boat.identified and boat.identified_by_mode in ("greedy", "llm"):
-                continue  # a greedy/LLM label sticks (only the operator relabels)
+            if boat.identified and boat.identified_by_mode in _AGENT_LABELLERS:
+                continue  # an agent's label sticks (only the operator relabels)
             if boat.id in usv.attempted_boat_ids:
                 continue  # this USV already tried this boat; don't re-roll
             if not _in_range(usv, boat.position, world.grid):
                 continue
             usv.attempted_boat_ids.append(boat.id)
-            if greedy:
-                wrong = _greedy_label(world, boat, greedy_rng or random.Random())
-                boat.identify(as_class=wrong)
-                boat.greedy_wrong = wrong is not None
-            else:
-                boat.identify()  # LLM stub: always correct
+            # Greedy / LLM-stub USVs see the true class; the shared wrong-ID
+            # setting may turn it wrong
+            label, kind = _agent_label(world, boat, Perception.from_classification(boat.true_class),
+                                       agent_rng or random.Random())
+            boat.identify(as_class=label)
+            boat.id_error = kind
             boat.identified_by_mode = usv.mode.value
             attempted.append(boat.id)
     return attempted
 
 
-def apply_declarations(world: World) -> list[str]:
+def apply_declarations(world: World, agent_rng: random.Random | None = None) -> list[str]:
     """Apply the class declarations requested by agent policies (the MDP).
 
     For each USV with a `pending_declaration = (boat_id, declared_class)`:
@@ -166,7 +201,13 @@ def apply_declarations(world: World) -> list[str]:
             continue
         if not _in_range(usv, boat.position, world.grid):
             continue
-        boat.identify(as_class=as_class)
+        if boat.identified and boat.identified_by_mode in _AGENT_LABELLERS:
+            continue  # an agent's label sticks (only the operator relabels)
+        # the shared wrong-ID setting may turn a correct declaration wrong; an
+        # MDP mistake is kept and counted (toward the set number, or as extra)
+        label, kind = _agent_label(world, boat, as_class, agent_rng or random.Random())
+        boat.identify(as_class=label)
+        boat.id_error = kind
         boat.identified_by_mode = "mdp"
         if boat.id not in usv.attempted_boat_ids:
             usv.attempted_boat_ids.append(boat.id)

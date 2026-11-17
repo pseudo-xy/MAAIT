@@ -517,7 +517,10 @@ def world_from_config(cfg: dict) -> World:
                  sensor_noise=_frac("sensor_noise", DEFAULT_SENSOR_NOISE),
                  visual_cue=bool(cfg.get("visual_cue", True)),
                  mdp_assignment=_mdp_assignment(cfg.get("mdp_assignment", "rate")),
-                 greedy_wrong_ids=_count("greedy_wrong_ids"))
+                 # older configs used "greedy_wrong_ids" for this setting
+                 agent_wrong_ids=_count("agent_wrong_ids" if "agent_wrong_ids" in cfg
+                                        else "greedy_wrong_ids"),
+                 mission_minutes=mission_minutes)
 
 
 def default_config() -> dict:

@@ -111,7 +111,7 @@ def _write_results_csv(world, config: dict,
         "identified", "perceived_class", "correct", "id_attempts",
         "first_identified_min", "outcome", "escort_start_min", "escort_end_min",
         "spawned_min", "known_at_start", "time_to_id_min",
-        "claimed_by_operator_usv", "identified_by", "greedy_planned_wrong",
+        "claimed_by_operator_usv", "identified_by", "id_error",
     ]
     rows = []
     for b in boats:
@@ -150,7 +150,8 @@ def _write_results_csv(world, config: dict,
             # who gave the label: manual / mdp / greedy / llm ("" = known at start)
             "identified_by": (b.identified_by_mode or ("" if b.known_at_start else "manual"))
                              if b.identified else "",
-            "greedy_planned_wrong": int(b.greedy_wrong),
+            # forced / own / extra (agent IDs only; "" = correct or not an agent ID)
+            "id_error": b.id_error or "",
         })
     with (RESULTS_DIR / contacts_name).open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=contact_fields)
@@ -204,9 +205,12 @@ def _write_results_csv(world, config: dict,
         "mean_time_to_id_min": mean_id,
         "median_time_to_id_min": median_id,
         "usvs_lost": usvs_eliminated,
-        "greedy_wrong_ids_set": world.greedy_wrong_ids,
-        "greedy_ids_made": world.greedy_ids_made,
-        "greedy_wrong_ids_made": world.greedy_wrong_made,
+        "agent_wrong_ids_set": world.agent_wrong_ids,
+        "agent_ids_made": world.agent_ids_made,
+        "agent_wrong_ids_counted": world.agent_wrong_counted,
+        "agent_wrong_ids_forced": world.agent_wrong_forced,
+        "agent_wrong_ids_own": world.agent_wrong_own,
+        "agent_wrong_ids_extra": world.agent_wrong_extra,
         **_mdp_version_fields(world),
     }
     with (RESULTS_DIR / summary_name).open("w", newline="") as f:

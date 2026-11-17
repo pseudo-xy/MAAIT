@@ -140,8 +140,8 @@ chosen by its type, and picks a new one on arrival. Also holds the special
 ## identification.py — when a boat gets identified
 
 The bridge from a boat's truth to what the operator sees. Wrong labels come from
-a decision (an MDP declaration or an operator's call), except for the **Greedy**
-mode, whose number of wrong IDs per mission is set on purpose in the settings.
+a decision (an MDP declaration or an operator's call), plus the number of agent
+wrong IDs per mission set on purpose in the settings (shared by all agent USVs).
 
 **Contains:**
 - `IDENTIFY_RANGE = 2.0` — base ID range (grid units on the Small map; scaled
@@ -149,20 +149,24 @@ mode, whose number of wrong IDs per mission is set on purpose in the settings.
 - `_in_range` — the proximity check.
 - `_needs_identification` — a boat is eligible unless it's already CORRECTLY
   identified (so a wrong label can still be corrected).
-- `auto_identify(world, rng, greedy_rng)` — LLM- and Greedy-mode USVs identify
-  boats in range immediately. LLM: always correct. Greedy: correct except for
-  the planned wrong ones. A label a Greedy/LLM USV gave sticks (other agent USVs
-  don't re-check it; only the operator can relabel). MDP-mode USVs are skipped.
-- `plan_greedy_errors(world, rng)` — at mission start, picks which greedy IDs
-  (1st, 2nd, ... over all greedy USVs together) will be wrong, so the mission
-  gets exactly `World.greedy_wrong_ids` wrong greedy IDs (settings page:
-  "Greedy: wrong IDs per mission"). If contacts run short, the remaining wrong
-  IDs are made on the next greedy IDs. A wrong ID gets one of the other two
-  classes at random; the boat keeps its true behavior (a friendly labelled
-  enemy is circled and eliminated, an enemy labelled civilian is left alone).
-  Logged: contacts CSV `identified_by`, `greedy_planned_wrong`; summary
-  `greedy_wrong_ids_set`, `greedy_ids_made`, `greedy_wrong_ids_made`.
-- `apply_declarations(world)` — applies each MDP USV's
+- `auto_identify(world, rng, agent_rng)` — LLM- and Greedy-mode USVs identify
+  boats in range immediately, correctly unless the wrong-ID setting turns that
+  ID wrong. MDP-mode USVs are skipped (they declare, below).
+- `plan_agent_errors(world, rng)` + `_agent_label(...)` — the WRONG-ID SETTING
+  ("AI agents: wrong IDs per mission" on the settings page,
+  `World.agent_wrong_ids`): the number of wrong IDs wanted from ALL agent USVs
+  together (MDP, Greedy, LLM). Agent IDs are numbered as they happen; at N
+  random planned positions a correct ID is turned wrong (one of the other two
+  classes). The MDP's own mistakes count toward N. Catch-up: when the wrong IDs
+  still owed equal the boats left to identify, or in the last 30% of the mission
+  (`LATE_CATCH_UP`), the next correct agent IDs are turned wrong. Once N is
+  reached nothing is forced; later MDP mistakes are kept and counted as EXTRA.
+  Every agent label sticks (no agent re-checks it; only the operator relabels).
+  Logged: contacts CSV `identified_by`, `id_error` (forced / own / extra);
+  summary `agent_wrong_ids_set`, `agent_ids_made`, `agent_wrong_ids_counted`
+  (= forced + own), `agent_wrong_ids_forced`, `agent_wrong_ids_own`,
+  `agent_wrong_ids_extra`. Older configs' `greedy_wrong_ids` is still read.
+- `apply_declarations(world, agent_rng)` — applies each MDP USV's
   `pending_declaration = (boat_id, class)`: only inside ID range, may be WRONG
   (the MDP's own call), always consumed.
 - `manual_identify(world, usv_id, boat_id, as_class)` — the operator action;

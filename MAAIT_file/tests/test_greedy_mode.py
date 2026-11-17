@@ -1,5 +1,5 @@
-"""Greedy control mode: nearest-boat baseline whose wrong identifications per
-mission are set in the settings (World.greedy_wrong_ids, all greedy USVs together)."""
+"""Greedy control mode, and the wrong-ID setting shared by all agent USVs
+(World.agent_wrong_ids)."""
 import pytest
 
 from reschu.engine import SimulationEngine
@@ -9,7 +9,7 @@ from reschu.types import USVMode
 
 def _run(wrong, seed, minutes=12):
     cfg = default_config()
-    cfg["greedy_wrong_ids"] = wrong
+    cfg["agent_wrong_ids"] = wrong
     for u in cfg["usvs"]:
         u["mode"] = "greedy"
         u.pop("timeline", None)
@@ -31,14 +31,20 @@ def test_greedy_mode_is_an_agent():
 def test_exactly_the_set_number_of_wrong_ids(wrong, seed):
     w = _run(wrong, seed)
     by_greedy = [b for b in w.boats if b.identified_by_mode == "greedy"]
-    assert w.greedy_ids_made == len(by_greedy) >= wrong
+    assert w.agent_ids_made == len(by_greedy) >= wrong
     bad = [b for b in by_greedy if not b.is_correctly_identified()]
-    assert len(bad) == w.greedy_wrong_made == wrong
-    assert all(b.greedy_wrong for b in bad)
+    assert len(bad) == w.agent_wrong_counted == w.agent_wrong_forced == wrong
+    assert all(b.id_error == "forced" for b in bad)
 
 
 def test_wrong_label_sticks():
     w = _run(3, 5)
     for b in w.boats:
-        if b.greedy_wrong:
+        if b.id_error:
             assert b.id_attempts == 1      # nobody re-identified it
+
+
+def test_old_config_key_still_read():
+    cfg = default_config()
+    cfg["greedy_wrong_ids"] = 2
+    assert world_from_config(cfg).agent_wrong_ids == 2
