@@ -42,7 +42,7 @@ def _usv_status_phrase(usv, world) -> str:
     elif usv.assigned_target_id is not None:
         b = world.boat(usv.assigned_target_id)
         if b is not None and b.identified and b.perceived_class in ("friendly", "civilian"):
-            doing = f"Escorting a {b.perceived_class} contact"
+            doing = f"Escorting a {getattr(b.perceived_class, 'value', b.perceived_class)} contact"
         elif b is not None:
             doing = "Moving to investigate a contact"
         else:
