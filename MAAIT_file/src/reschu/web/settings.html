@@ -97,6 +97,18 @@
   .commscard input{width:100%;text-align:center;padding:4px 2px;font-size:11px}
   #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f2a1c;
     border:1px solid var(--ok);color:#bff3d8;padding:10px 18px;border-radius:8px;display:none;font-size:13px}
+
+  /* ---- WHITE THEME ---- */
+  :root{ --bg:#ffffff; --panel:#ffffff; --panel2:#f4f6f9; --edge:#d3dae3;
+    --ink:#17212e; --muted:#5a6a7e; --accent:#1f6fd1; }
+  header{background:#f4f6f9}
+  header a,header button{background:#eef3fa;color:#1f5fa8;border-color:#a9c3e3}
+  header .apply{background:var(--accent);border-color:var(--accent);color:#ffffff}
+  .card h2{background:#f4f6f9;color:#33445a}
+  input,select{background:#ffffff;color:var(--ink)}
+  .addbtn{background:#f7f9fb}
+  #toast{background:#e6f6ee;color:#11603a}
+  /* ---- END WHITE THEME ---- */
 </style>
 </head>
 <body>
@@ -338,7 +350,7 @@ function usvRow(u, i){
     seg.forEach((sg,si)=>{
       const x0=xOf(sg.from), x1=xOf(sg.to), w=Math.max(0,x1-x0);
       const mins = Math.round((sg.to-sg.from)*mission*10)/10;
-      s += `<rect class="tseg" data-seg="${si}" x="${x0}" y="${padTop}" width="${w}" height="${barH}" fill="${tlModeColor(sg.mode)}" stroke="#0b1622" stroke-width="1" rx="2" style="cursor:pointer"/>`;
+      s += `<rect class="tseg" data-seg="${si}" x="${x0}" y="${padTop}" width="${w}" height="${barH}" fill="${tlModeColor(sg.mode)}" stroke="#ffffff" stroke-width="1" rx="2" style="cursor:pointer"/>`;
       if (w>34) s += `<text x="${x0+w/2}" y="${padTop+barH/2+3}" fill="#fff" font-size="10" text-anchor="middle" style="pointer-events:none">${tlModeLabel(sg.mode)} · ${mins}m</text>`;
     });
     // internal boundaries: one handle between each adjacent pair of segments
@@ -350,7 +362,7 @@ function usvRow(u, i){
     // ticks 0..mission
     for(let t=0;t<=mission;t+=Math.max(1,Math.round(mission/6))){
       const x=xOf(t/mission);
-      s += `<text x="${x}" y="${H-1}" fill="#6f8aa8" font-size="8" text-anchor="middle">${t}</text>`;
+      s += `<text x="${x}" y="${H-1}" fill="#5a6a7e" font-size="8" text-anchor="middle">${t}</text>`;
     }
     s += `</svg>`;
     tlHost.innerHTML = s;
@@ -652,18 +664,18 @@ function drawRefGrid(){
   const xOf = c => padL + c*cell;
   const yTop = r => padT + r*cell;      // r=0 (row A) at the TOP, going down
   let s = `<svg viewBox="0 0 ${vbW} ${vbH}" width="100%" style="display:block" font-family="var(--mono,monospace)">`;
-  s += `<rect x="${padL}" y="${padT}" width="${gw}" height="${gh}" fill="#0b1622" stroke="#2f5372"/>`;
+  s += `<rect x="${padL}" y="${padT}" width="${gw}" height="${gh}" fill="#ffffff" stroke="#8fa3ba"/>`;
   // cell lines
   for (let c=0;c<=W;c++){ const x=xOf(c), M=(c%5===0);
-    s+=`<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT+gh}" stroke="${M?'#2f5372':'#18324a'}" stroke-width="${M?0.7:0.4}"/>`; }
+    s+=`<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT+gh}" stroke="${M?'#8fa3ba':'#dfe5ec'}" stroke-width="${M?0.7:0.4}"/>`; }
   for (let r=0;r<=H;r++){ const y=padT+r*cell, M=(r%5===0);
-    s+=`<line x1="${padL}" y1="${y}" x2="${padL+gw}" y2="${y}" stroke="${M?'#2f5372':'#18324a'}" stroke-width="${M?0.7:0.4}"/>`; }
+    s+=`<line x1="${padL}" y1="${y}" x2="${padL+gw}" y2="${y}" stroke="${M?'#8fa3ba':'#dfe5ec'}" stroke-width="${M?0.7:0.4}"/>`; }
   // column numbers 1..40 — one on top of EVERY cell
   for (let c=1;c<=W;c++){ const x=xOf(c-1)+cell/2;
-    s+=`<text x="${x}" y="${padT-4}" fill="#8fa8c4" font-size="5.5" text-anchor="middle">${c}</text>`; }
+    s+=`<text x="${x}" y="${padT-4}" fill="#5a6a7e" font-size="5.5" text-anchor="middle">${c}</text>`; }
   // row letters A..Y down the left — A at the top
   for (let r=0;r<H;r++){ const y=yTop(r)+cell/2+2.5;
-    s+=`<text x="${padL-4}" y="${y}" fill="#8fa8c4" font-size="7" text-anchor="end">${letters[r]}</text>`; }
+    s+=`<text x="${padL-4}" y="${y}" fill="#5a6a7e" font-size="7" text-anchor="end">${letters[r]}</text>`; }
   s += `</svg>`;
   host.innerHTML = s;
 }
@@ -693,8 +705,8 @@ document.getElementById('mapSize').addEventListener('change', (e)=>{
 function toast(msg, ok=true){
   const t=document.getElementById('toast'); t.textContent=msg;
   t.style.borderColor = ok?'var(--ok)':'var(--enemy)';
-  t.style.background = ok?'#0f2a1c':'#2a1116';
-  t.style.color = ok?'#bff3d8':'#ffc9d0';
+  t.style.background = ok?'#e6f6ee':'#fdecee';
+  t.style.color = ok?'#11603a':'#a3142b';
   t.style.display='block'; setTimeout(()=>t.style.display='none', 2200);
 }
 

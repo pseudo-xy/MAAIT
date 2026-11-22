@@ -401,10 +401,11 @@ def _is_admin_path(path: str) -> bool:
 
 
 _LOCKED_HTML = """<!doctype html><html><head><meta charset="utf-8"><title>MAAIT</title>
-<style>body{background:#0b1622;color:#d9e4f0;font-family:system-ui,sans-serif;display:flex;
+<style>body{background:#ffffff;color:#17212e;font-family:system-ui,sans-serif;display:flex;
 align-items:center;justify-content:center;height:100vh;margin:0}
-.box{background:#0f1c2b;border:1px solid #23364d;border-radius:12px;padding:28px 36px;text-align:center}
-a{color:#9bc7ff}</style></head><body><div class="box"><h2>&#128274; Administrator access required</h2>
+.box{background:#ffffff;border:1px solid #d3dae3;border-radius:12px;padding:28px 36px;text-align:center;
+box-shadow:0 10px 30px rgba(20,35,55,.12)}
+a{color:#1f6fd1}</style></head><body><div class="box"><h2>&#128274; Administrator access required</h2>
 <p>Unlock the admin menu on the console first.</p><p><a href="/">Back to the console</a></p>
 </div></body></html>"""
 
