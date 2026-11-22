@@ -51,6 +51,7 @@ class BoatView:
     camera_report: str | None = None  # latest camera look (a type name; may be WRONG)
     camera_look_id: int = 0           # id of that look (new id = fresh look)
     operator_handling: bool = False   # the operator's manual USV owns its follow-up
+    circle_done: bool = False         # circled already under its current label
 
 
 @dataclass
@@ -123,6 +124,7 @@ def observe(usv: USV, world: World, now_min: float) -> Observation:
             camera_report=look,
             camera_look_id=look_id,
             operator_handling=b.manual_handler is not None,
+            circle_done=b.circle_done,
         ))
     me = SelfView(
         id=usv.id,

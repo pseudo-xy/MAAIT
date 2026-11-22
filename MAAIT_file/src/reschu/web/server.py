@@ -112,6 +112,7 @@ def _write_results_csv(world, config: dict,
         "first_identified_min", "outcome", "escort_start_min", "escort_end_min",
         "spawned_min", "known_at_start", "time_to_id_min",
         "claimed_by_operator_usv", "identified_by", "id_error",
+        "circled_not_removed",
     ]
     rows = []
     for b in boats:
@@ -152,6 +153,7 @@ def _write_results_csv(world, config: dict,
                              if b.identified else "",
             # forced / own / extra (agent IDs only; "" = correct or not an agent ID)
             "id_error": b.id_error or "",
+            "circled_not_removed": int(b.circle_done),
         })
     with (RESULTS_DIR / contacts_name).open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=contact_fields)

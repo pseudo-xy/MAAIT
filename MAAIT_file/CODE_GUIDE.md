@@ -667,6 +667,14 @@ mission log, and writes the two result files.
   converted via the playback ratio → 2.0 sim-min at 12x), the enemy is eliminated
   (`left_grid = True`, `eliminated = True`). The circle TRACKS the moving boat
   (circle centre = boat's current position each tick), so the boat can't escape.
+- **Wrong labels keep true behaviour (Nov 2026).** A boat always moves by its TRUE
+  behaviour, whatever label it carries, until someone relabels it. Circling only
+  removes a boat that really is an enemy. A civilian/friendly wrongly labelled
+  enemy (by the operator or an AI USV) is circled for the full minute and then
+  stays on the map with its wrong label (`Boat.circle_done = True`): a civilian
+  keeps wandering, a friendly keeps heading for its exit. `circle_done` stops it
+  being circled again and is cleared by any new label. Results: contacts CSV
+  column `circled_not_removed`.
 - **Escorted civilian/friendly at the edge** → disappears (leaves grid) as before.
 - **Distance chain:** ID range 7.5 > circle radius 7.0 > danger zone 6.0. The USV
   must ID (within 7.5) before it can circle (at 7.0), and 7.0 keeps it outside the

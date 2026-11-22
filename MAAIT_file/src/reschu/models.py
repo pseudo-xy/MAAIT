@@ -237,7 +237,15 @@ class Boat(BaseModel):
             return False
         if self.manual_handler is not None:
             return False          # the operator's manual USV is handling it
+        if self.circle_done:
+            return False          # already circled under its current (wrong) label
         return True
+
+    # Circling finished on a boat labelled enemy that is NOT really an enemy.
+    # Circling never removes such a boat: it keeps its true behaviour (a civilian
+    # keeps wandering, a friendly keeps heading for its exit) and keeps its wrong
+    # label until someone relabels it. This flag stops it being circled again.
+    circle_done: bool = False
 
     identified_by_mode: str | None = None   # mode of the USV that labelled it (None = operator / known)
     # agent identification error: None, "forced" (made wrong to reach the set
@@ -263,6 +271,7 @@ class Boat(BaseModel):
         """
         self.id_attempts += 1
         self.identified = True
+        self.circle_done = False   # a new label starts a fresh follow-up
         if as_class is None:
             self.perceived_class = Perception.from_classification(self.true_class)
         else:

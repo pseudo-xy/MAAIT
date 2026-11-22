@@ -114,6 +114,8 @@ class TeamAssigner:
         # declared contacts that still need a USV
         from ..usv_movement import CIRCLE_DURATION_MIN
         if b.perceived_class is Perception.ENEMY:
+            if getattr(b, "circle_done", False):
+                return None                  # already circled under this label
             kind = "aggressive" if b.threat_tier is ThreatTier.HIGH else "standoff_low"
             g = rw["declare"]["enemy"][kind] - rw["abandon"][kind]
             work_s = CIRCLE_DURATION_MIN * 60.0

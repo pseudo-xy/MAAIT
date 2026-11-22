@@ -301,6 +301,7 @@ def _nearest_identified_enemy(usv: USV, world: World):
     enemies = [
         b for b in world.boats
         if b.identified and b.perceived_class is Perception.ENEMY
+        and not b.circle_done and not b.left_grid
     ]
     if not enemies:
         return None
@@ -395,8 +396,13 @@ def assigned_agent_step(usv: USV, world: World, dt_min: float, now_min: float) -
             usv.circle_events.append(
                 (boat.id, round(usv.circling_since_min, 3), round(now_min, 3))
             )
-            boat.left_grid = True          # eliminated -> disappears
-            boat.eliminated = True
+            if boat.true_class is Classification.ENEMY:
+                boat.left_grid = True      # a real enemy is eliminated -> disappears
+                boat.eliminated = True
+            else:
+                # a civilian/friendly wrongly labelled enemy is NOT removed: it
+                # keeps its true behaviour and its label until it is relabelled
+                boat.circle_done = True
             _release(usv, boat, now_min)
             return usv.position
         return circle_step(usv, boat, world, dt_min)

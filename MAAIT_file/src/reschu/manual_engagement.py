@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from .identification import identify_range
 from .models import USV, Boat, World
-from .types import Perception, USVMode
+from .types import Classification, Perception, USVMode
 from .usv_movement import CIRCLE_DURATION_MIN
 
 
@@ -88,8 +88,12 @@ def update_manual_engagements(world: World, now_min: float, dt_min: float) -> li
         if boat.manual_circle_min >= CIRCLE_DURATION_MIN - 1e-9:
             usv.circle_events.append((boat.id, round(boat.manual_circle_start_min, 3),
                                       round(now_min, 3)))
-            boat.left_grid = True            # eliminated -> disappears
-            boat.eliminated = True
+            if boat.true_class is Classification.ENEMY:
+                boat.left_grid = True        # a real enemy is eliminated -> disappears
+                boat.eliminated = True
+            else:
+                boat.circle_done = True      # not really an enemy: it stays, keeps
+                                             # its true behaviour and its label
             boat.manual_handler = None
             done.append(boat.id)
     return done
