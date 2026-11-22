@@ -287,6 +287,26 @@
   #stepper .sbtn { background:#eef3fa; }
   #stepper .sbtn:hover { background:#e1ebf7; }
   /* ---- END WHITE THEME ---- */
+
+  /* ---- SMALL SCREENS (e.g. laptops with display scaling) ----
+     The map always keeps most of the centre column; the message box shrinks
+     instead. Below ~620px of height the page scrolls rather than squashing. */
+  .wrap { height:max(540px, calc(100vh - 52px)); }
+  .mapbox { min-height:55%; }
+  .mapbox canvas { position:absolute; inset:0; }
+  .msgthread { height:clamp(48px, calc(100vh - 760px + 150px), 150px); }
+  .incominglist { height:clamp(88px, calc(100vh - 760px + 194px), 194px); }
+  @media (max-height:820px){
+    .msgbox { margin-top:6px; }
+    .msgbox .card, .card.msgbox { padding:6px 10px; }
+    .msghead .panelhead { padding:2px 4px; }
+    .recipients { gap:4px; margin-bottom:5px; }
+    .recipients .chip { padding:3px 9px; }
+    .msginput { margin-top:5px; }
+    .msginput input, .msginput button { padding:5px 10px; }
+    .legend { padding:4px 4px !important; }
+    .maphead, .panelhead { padding:3px 4px; }
+  }
 </style>
 </head>
 <body>
@@ -619,6 +639,8 @@ function fit() {
   draw();
 }
 window.addEventListener('resize', fit);
+// refit whenever the map box itself changes size (layout settling, small screens)
+if (window.ResizeObserver) new ResizeObserver(()=>fit()).observe(cv);
 
 // world -> screen mapping (letterboxed to keep aspect ratio)
 function mapping() {
