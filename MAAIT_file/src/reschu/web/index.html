@@ -244,6 +244,49 @@
   .foot{ color:var(--muted); font-size:11.5px; padding-top:6px; }
   .kv{ display:flex; justify-content:space-between; font-size:12.5px; padding:3px 0; }
   .kv span:first-child{ color:var(--muted); }
+
+  /* ---- WHITE THEME: light background for the whole console ----
+     (camera / video tiles stay dark, like a real video feed) */
+  :root {
+    --bg:#ffffff; --panel:#ffffff; --panel2:#f4f6f9; --edge:#d3dae3;
+    --ink:#17212e; --muted:#5a6a7e; --accent:#1f6fd1;
+  }
+  header { background:#f4f6f9; }
+  canvas { background:#ffffff; }
+  .c-enemy{ color:#c8233a; } .c-friendly{ color:#0a7fb0; }
+  .c-civilian{ color:#5a6a7e; } .c-unknown{ color:#8a6200; background:rgba(255,190,0,.18); }
+  #adminbtn, #pausebtn, #settingslink, #resultslink { background:#eef3fa; color:#1f5fa8; border-color:#a9c3e3; }
+  #adminbtn:hover, #adminbtn.open, #pausebtn:hover, #settingslink:hover, #resultslink:hover { background:#e1ebf7; }
+  #recbtn { background:#fdecee; color:#c8233a; border-color:#f0b4bd; }
+  #recbtn:hover { background:#fadde1; }
+  #recbtn.armed, #pausebtn.paused, #pausedbadge { background:#fff4e0; color:#a35f00; border-color:#e8a33d; }
+  #adminlock { background:#fdecee; color:#c8233a; border-color:#f0b4bd; }
+  #startoverlay { background:rgba(255,255,255,0.6); }
+  #startoverlay .box, #adminpanel, #adminmodal .box, #menu, #stepper {
+    background:#ffffff; box-shadow:0 10px 30px rgba(20,35,55,.18); }
+  #adminmodal { background:rgba(20,35,55,.35); }
+  #adminmodal input, .msginput input { background:#ffffff; color:var(--ink); }
+  #adminmodal button { background:#eef1f5; color:var(--ink); }
+  #adminmodal button.primary { color:#ffffff; }
+  .recipients .chip { background:#ffffff; color:#33445a; }
+  .recipients .chip:hover { background:#eef3fa; }
+  .recipients .chip.sel { background:#e1ebf7; border-color:#3a6ea5; color:#0f2a4a; }
+  .recipients .chip.agent.sel { background:#ece6fb; border-color:#6f4bd6; color:#2d1a66; }
+  .msgthread { background:#f7f9fb; }
+  .msgthread .mine { background:#dbe8fb; color:#0f2a4a; }
+  .msgthread .theirs { background:#ffffff; color:#17212e; }
+  .msginput button, .rtbbtn { background:#eef1f5; color:#253447; }
+  .msginput button:hover, .rtbbtn:hover:not(:disabled) { background:#e1e6ed; }
+  .incominglist .imsg { background:#f7f9fb; }
+  .incominglist .itext { color:#253447; }
+  .previewlink { color:#1f6fd1; }
+  .hrow .hid { color:#1f5fd1; }
+  #menu button:hover { background:rgba(31,111,209,.10); }
+  #tooltip { background:#ffffff; box-shadow:0 4px 14px rgba(20,35,55,.18); }
+  #tooltip .t-speed { color:#16884f; }
+  #stepper .sbtn { background:#eef3fa; }
+  #stepper .sbtn:hover { background:#e1ebf7; }
+  /* ---- END WHITE THEME ---- */
 </style>
 </head>
 <body>
@@ -298,7 +341,7 @@
   </div>
 
   <div class="mapcol">
-    <div class="maphead">Map Area · top view</div>
+    <div class="maphead">Map Area</div>
     <div class="mapbox">
       <canvas id="map"></canvas>
       <div id="menu"></div>
@@ -640,7 +683,7 @@ function draw() {
   ctx.clip();
 
   // grid lines
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.strokeStyle = 'rgba(20,40,70,0.08)';
   ctx.lineWidth = 1;
   for (let gx=0; gx<=state.grid.width; gx+=10){
     ctx.beginPath(); ctx.moveTo(m.X(gx),m.Y(0)); ctx.lineTo(m.X(gx),m.Y(state.grid.height)); ctx.stroke();
@@ -649,7 +692,7 @@ function draw() {
     ctx.beginPath(); ctx.moveTo(m.X(0),m.Y(gy)); ctx.lineTo(m.X(state.grid.width),m.Y(gy)); ctx.stroke();
   }
   // border
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.strokeStyle = 'rgba(20,40,70,0.30)';
   ctx.strokeRect(m.X(0), m.Y(state.grid.height), state.grid.width*m.sx, state.grid.height*m.sy);
 
   // manual-USV links: a line from the manual USV to each boat currently within
@@ -662,7 +705,7 @@ function draw() {
     if (!u || !b || b.left_grid) continue;
     ctx.beginPath();
     ctx.moveTo(m.X(u.x), m.Y(u.y)); ctx.lineTo(m.X(b.x), m.Y(b.y));
-    ctx.strokeStyle = 'rgba(90,210,255,0.9)'; ctx.lineWidth = 2.4; ctx.setLineDash([6,3]);
+    ctx.strokeStyle = 'rgba(0,140,200,0.9)'; ctx.lineWidth = 2.4; ctx.setLineDash([6,3]);
     ctx.stroke(); ctx.setLineDash([]);
   }
 
@@ -685,10 +728,10 @@ function draw() {
       ctx.beginPath();
       ctx.moveTo(m.X(u.x), m.Y(u.y));
       ctx.lineTo(m.X(u.destination.x), m.Y(u.destination.y));
-      ctx.strokeStyle='#eaf2ff'; ctx.lineWidth=2.2; ctx.stroke();
+      ctx.strokeStyle='#1d3557'; ctx.lineWidth=2.2; ctx.stroke();
       // destination marker
       ctx.beginPath(); ctx.arc(m.X(u.destination.x), m.Y(u.destination.y), 4, 0, Math.PI*2);
-      ctx.fillStyle='#eaf2ff'; ctx.fill();
+      ctx.fillStyle='#1d3557'; ctx.fill();
     }
   }
   // in-progress drag line (operator dragging a new course from the manual USV)
@@ -696,7 +739,7 @@ function draw() {
     ctx.beginPath();
     ctx.moveTo(m.X(drag.fromX), m.Y(drag.fromY));
     ctx.lineTo(drag.curPx, drag.curPy);
-    ctx.strokeStyle='rgba(90,210,255,0.95)'; ctx.lineWidth=2.2; ctx.setLineDash([6,4]);
+    ctx.strokeStyle='rgba(0,140,200,0.95)'; ctx.lineWidth=2.2; ctx.setLineDash([6,4]);
     ctx.stroke(); ctx.setLineDash([]);
   }
 
@@ -708,11 +751,11 @@ function draw() {
     const cx=m.X(u.x), cy=m.Y(u.y);
     const rtb = u.rtb;
     // heading arrow (points the way it's travelling), just outside the marker
-    drawHeadingArrow(cx, cy, u.hx, u.hy, 17, rtb ? '#aab4c0' : '#eaf2ff');
+    drawHeadingArrow(cx, cy, u.hx, u.hy, 17, rtb ? '#8a94a0' : '#1d3557');
     ctx.beginPath(); ctx.arc(cx,cy,17,0,Math.PI*2);
     ctx.fillStyle = rtb ? '#6b7280' : USV_BLUE; ctx.fill();   // gray when RTB
-    ctx.strokeStyle = rtb ? '#aab4c0' : '#eaf2ff'; ctx.lineWidth=3; ctx.stroke();
-    ctx.fillStyle = rtb ? '#aab4c0' : '#cfe0f2'; ctx.font='19px var(--sans)'; ctx.textAlign='center';
+    ctx.strokeStyle = rtb ? '#8a94a0' : '#0b2a6b'; ctx.lineWidth=3; ctx.stroke();
+    ctx.fillStyle = rtb ? '#6b7280' : '#1d3557'; ctx.font='19px var(--sans)'; ctx.textAlign='center';
     ctx.fillText(rtb ? `${u.id} · RTB` : usvLabel(u), cx, cy+36);
 
     // manual USV: a clickable speed pill (double-click it to open the stepper)
@@ -743,7 +786,7 @@ function draw() {
     if (cls === 'unknown' || cls === 'enemy'){
       const dzr = (state.danger_zone || state.identify_range);
       ctx.beginPath(); ctx.arc(cx,cy,dzr*m.s,0,Math.PI*2);
-      ctx.strokeStyle = 'rgba(255,210,63,0.30)'; ctx.setLineDash([4,4]); ctx.lineWidth=1.2;
+      ctx.strokeStyle = 'rgba(200,130,0,0.55)'; ctx.setLineDash([4,4]); ctx.lineWidth=1.4;
       ctx.stroke(); ctx.setLineDash([]);
     }
     // marker shape by perceived class
@@ -800,11 +843,11 @@ function draw() {
         ctx.strokeStyle='#f2a33a'; ctx.lineWidth=4; ctx.stroke();
       }
       const secs = Math.round(p*60);
-      ctx.fillStyle='#f2a33a'; ctx.font='bold 16px var(--sans)'; ctx.textAlign='center';
+      ctx.fillStyle='#b8650a'; ctx.font='bold 16px var(--sans)'; ctx.textAlign='center';
       ctx.fillText(`circling ${secs}s / 60s`, cx, cy+46);
     }
     // label
-    ctx.fillStyle='#b9cbe0'; ctx.font='19px var(--sans)'; ctx.textAlign='center';
+    ctx.fillStyle='#33445a'; ctx.font='19px var(--sans)'; ctx.textAlign='center';
     ctx.fillText(b.id, cx, cy-22);
   }
 
