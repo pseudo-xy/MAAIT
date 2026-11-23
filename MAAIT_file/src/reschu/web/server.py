@@ -28,7 +28,7 @@ from ..identification import identify_range, manual_identify
 from ..scenario import simple_world, world_from_config, default_config
 from ..types import Perception, Vec2
 
-app = FastAPI(title="RESCHU-MAAIT")
+app = FastAPI(title="MAAIT")
 
 # Report which MDP teammate this server will run (and fail loudly if the frozen
 # policy files were changed — trials must not silently use a different teammate).

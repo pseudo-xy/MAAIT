@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>RESCHU-MAAIT</title>
+<title>MAAIT</title>
 <style>
   :root {
     --bg:#0d1622; --panel:#132030; --panel2:#0f1a28; --edge:#213248;
@@ -311,7 +311,7 @@
 </head>
 <body>
 <header>
-  <div class="title">RESCHU&nbsp;·&nbsp;MAAIT</div>
+  <div class="title">MAAIT</div>
   <div class="clock" id="clock">t = — min</div>
   <div class="spacer"></div>
   <span id="pausedbadge">⏸ PAUSED</span>
@@ -586,7 +586,7 @@ function adminSend(obj){
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-        a.href = url; a.download = `reschu-map-${ts}.webm`;
+        a.href = url; a.download = `maait-map-${ts}.webm`;
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(()=>URL.revokeObjectURL(url), 4000);
       }
