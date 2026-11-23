@@ -80,7 +80,7 @@ def _reply_phrase(usv, world, prompt: str, rng: random.Random) -> str:
     """A USV's reply to an operator message. For now it's a status-flavoured
     acknowledgement (the real AI/BGC replies come later)."""
     status = _usv_status_phrase(usv, world)
-    openers = ["Copy.", "Acknowledged.", "Roger.", "Wilco.", "Understood."]
+    openers = ["Copy.", "Acknowledged.", "Roger.", "Understood."]
     return f"{rng.choice(openers)} {status}"
 
 
