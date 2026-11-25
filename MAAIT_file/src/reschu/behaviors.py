@@ -48,7 +48,7 @@ def _move_towards(boat: Boat, target: Vec2, dt_min: float, world: World) -> Vec2
     # use the hard clamp. Every other boat (civilian / standoff / aggressive) is
     # kept a small margin off the edge so it never pins to the wall and leaves a
     # visual smudge there.
-    _clamp = (world.grid.clamp if friendly_cleared(boat)
+    _clamp = (world.grid.clamp if boat.behavior is Behavior.FRIENDLY
               else world.grid.clamp_inset)
     if dist <= step:
         return _clamp(target)   # arrived: land on the goal, no overshoot
@@ -229,15 +229,6 @@ def _bounce_off_walls(boat: Boat, world: World, margin: float = 2.0) -> None:
     boat.straight_heading = Vec2(x=hx, y=hy)
 
 
-def friendly_cleared(boat: Boat) -> bool:
-    """A friendly heads for its exit only once it is CORRECTLY identified as
-    friendly (by the operator or an AI USV). Until then — unknown, or wrongly
-    labelled civilian/enemy — it keeps cruising in a straight line and turns
-    back at the map edge instead of leaving, so the mistake can be corrected."""
-    return (boat.behavior is Behavior.FRIENDLY and boat.identified
-            and boat.perceived_class is Perception.FRIENDLY)
-
-
 def _goal_friendly(boat: Boat, world: World, rng: random.Random) -> Vec2:
     """Zigzag transit: the friendly travels along a stable base heading, weaving
     with a small random deviation each step (the zigzag) WITHOUT the deviations
@@ -258,19 +249,6 @@ def _goal_friendly(boat: Boat, world: World, rng: random.Random) -> Vec2:
             angle = rng.uniform(0, 2 * math.pi)
             boat.straight_heading = Vec2(x=math.cos(angle), y=math.sin(angle))
 
-    if friendly_cleared(boat):
-        if not boat.exit_aimed:
-            # correctly identified: turn onto a course for its exit (or, with no
-            # exit set, keep the current course to the edge it is heading for)
-            if boat.exit_point is not None:
-                to_exit = boat.exit_point - boat.position
-                if to_exit.length() > 1e-6:
-                    boat.straight_heading = to_exit.normalized()
-            boat.exit_aimed = True
-    else:
-        boat.exit_aimed = False
-        _bounce_off_walls(boat, world, margin=2.0)   # not cleared: never leaves
-
     # jitter is a temporary deviation from the stable base heading (not persisted)
     base = boat.straight_heading
     base_angle = math.atan2(base.y, base.x)
@@ -281,8 +259,7 @@ def _goal_friendly(boat: Boat, world: World, rng: random.Random) -> Vec2:
     # oscillates around the course rather than wandering off it.
 
     reach = 0.15 * (world.grid.width + world.grid.height)
-    clamp = world.grid.clamp if friendly_cleared(boat) else world.grid.clamp_inset
-    return clamp(
+    return world.grid.clamp(
         Vec2(x=boat.position.x + step_dir.x * reach,
              y=boat.position.y + step_dir.y * reach)
     )
@@ -422,8 +399,8 @@ def step_boat(boat: Boat, world: World, dt_min: float, rng: random.Random) -> Ve
     if boat.behavior is Behavior.FRIENDLY:
         if not _on_boundary(nxt, world):
             boat.entered_grid = True
-        elif boat.entered_grid and friendly_cleared(boat):
-            boat.left_grid = True       # only a correctly identified friendly exits
+        elif boat.entered_grid:
+            boat.left_grid = True
 
     return nxt
 

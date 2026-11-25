@@ -667,13 +667,6 @@ mission log, and writes the two result files.
   converted via the playback ratio → 2.0 sim-min at 12x), the enemy is eliminated
   (`left_grid = True`, `eliminated = True`). The circle TRACKS the moving boat
   (circle centre = boat's current position each tick), so the boat can't escape.
-- **Friendlies exit only after a correct ID (Nov 2026).** A friendly heads for
-  its exit only once it is correctly identified as friendly (by the operator or
-  an AI USV): `behaviors.friendly_cleared()`. Until then (unknown, or wrongly
-  labelled civilian/enemy) it cruises on its straight course and turns back at
-  the map edge instead of leaving, so the mislabel can still be corrected. On a
-  correct ID it re-aims at its exit (`Boat.exit_aimed`) and leaves as before; a
-  new friendly then enters from an edge.
 - **Wrong labels keep true behaviour (Nov 2026).** A boat always moves by its TRUE
   behaviour, whatever label it carries, until someone relabels it. Circling only
   removes a boat that really is an enemy. A civilian/friendly wrongly labelled
