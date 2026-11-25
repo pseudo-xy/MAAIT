@@ -174,6 +174,9 @@ class Boat(BaseModel):
     left_grid: bool = False  # set once the boat has exited the map
     eliminated: bool = False  # true if removed by a completed enemy-circle (vs. exited)
     entered_grid: bool = False  # friendly: has moved into the interior at least once
+    # friendly: its course has been re-aimed at its exit (set once it is correctly
+    # identified as friendly; cleared again if it is relabelled)
+    exit_aimed: bool = False
     escort_start_min: float | None = None  # mission time escort began
     escort_end_min: float | None = None    # mission time the boat left the grid
     # mission time (minutes) when this boat was FIRST identified (correctly or
