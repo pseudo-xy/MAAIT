@@ -307,6 +307,27 @@
     .legend { padding:4px 4px !important; }
     .maphead, .panelhead { padding:3px 4px; }
   }
+
+  /* ---- LAYOUT (Nov 2026): messages on the left, cameras + video under the map ---- */
+  .leftcol .card.inbox { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+  .leftcol .card.inbox .incominglist { flex:1 1 auto; height:auto; min-height:0; }
+  .leftcol .card.msgbox { flex:0 0 auto; margin-top:0; display:block; }
+  .msgcompose { padding-top:2px; }
+  .camvidrow { flex:0 0 auto; height:clamp(170px, 27vh, 270px); display:grid;
+    grid-template-columns:1fr 1fr; gap:12px; margin-top:8px; min-height:0; }
+  .camvidrow .card { display:flex; flex-direction:column; min-height:0; overflow:hidden; padding:6px 10px 10px; }
+  .camvidrow .camgrid { flex:1 1 auto; min-height:0; grid-template-columns:1fr 1fr;
+    grid-template-rows:1fr 1fr; }
+  .camvidrow .camtile { aspect-ratio:auto; min-height:0; }
+  .camvidrow .videopanel { flex:1 1 auto; min-height:0; }
+  .mapbox { min-height:0; }
+  .msgthread { height:clamp(60px, calc(100vh - 760px + 150px), 150px); }
+  .camtile .cross, .videopanel .cross { width:100%; height:100%; }
+  /* the clips are square: small tiles crop to the upper part (where boats and
+     flags are); the Video panel shows the whole clip so nothing is cut off */
+  .camtile video.camvid { object-fit:cover !important; object-position:50% 18% !important; }
+  .videopanel video.camvid { object-fit:contain !important; background:#05080c; }
+  .camvidrow { height:clamp(180px, 30vh, 300px); }
 </style>
 </head>
 <body>
@@ -350,13 +371,22 @@
 
 <div class="wrap">
   <div class="leftcol">
-    <div class="card">
-      <div class="panelhead camhead">Camera Feeds</div>
-      <div id="camgrid" class="camgrid"></div>
+    <!-- INCOMING MESSAGES (top left) -->
+    <div class="card inbox">
+      <div class="panelhead">Incoming messages</div>
+      <div id="incominglist" class="incominglist"></div>
     </div>
-    <div class="card">
-      <div class="panelhead">Video</div>
-      <div id="videoPanel" class="videopanel"></div>
+    <!-- MESSAGE BOX (bottom left) -->
+    <div class="card msgbox">
+      <div class="panelhead">Message Box</div>
+      <div class="msgcompose">
+        <div id="recipients" class="recipients"></div>
+        <div id="msgthread" class="msgthread"></div>
+        <div class="msginput">
+          <input id="msgtext" type="text" placeholder="Message selected…" autocomplete="off">
+          <button id="msgsend">Send</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -382,24 +412,15 @@
       <span><span class="dot" style="background:var(--unknown)"></span>unknown</span>
     </div>
 
-    <!-- MESSAGE BOX -->
-    <div class="card msgbox">
-      <div class="msghead">
-        <span class="panelhead">Message Box</span>
-        <span class="panelhead">Incoming messages</span>
+    <!-- CAMERA FEEDS + VIDEO (under the map, side by side, landscape) -->
+    <div class="camvidrow">
+      <div class="card camcard">
+        <div class="panelhead camhead">Camera Feeds</div>
+        <div id="camgrid" class="camgrid"></div>
       </div>
-      <div class="msggrid">
-        <div class="msgcompose">
-          <div id="recipients" class="recipients"></div>
-          <div id="msgthread" class="msgthread"></div>
-          <div class="msginput">
-            <input id="msgtext" type="text" placeholder="Message selected…" autocomplete="off">
-            <button id="msgsend">Send</button>
-          </div>
-        </div>
-        <div class="msgincoming">
-          <div id="incominglist" class="incominglist"></div>
-        </div>
+      <div class="card vidcard">
+        <div class="panelhead">Video</div>
+        <div id="videoPanel" class="videopanel"></div>
       </div>
     </div>
   </div>
