@@ -328,6 +328,10 @@
   .camtile video.camvid { object-fit:cover !important; object-position:50% 18% !important; }
   .videopanel video.camvid { object-fit:contain !important; background:#05080c; }
   .camvidrow { height:clamp(180px, 30vh, 300px); }
+  /* 6-8 USVs: smaller tile labels so the id and status badge both fit */
+  .camgrid.many .camtile .cid { font-size:8px; top:2px; left:3px; padding:0 3px; }
+  .healthlist { flex:1 1 auto; min-height:0; overflow-y:auto; }   /* scroll when 8 USVs do not fit */
+  .camgrid.many .camtile .cstat { font-size:7px; top:2px; right:2px; padding:0 3px; }
 </style>
 </head>
 <body>
@@ -1315,6 +1319,11 @@ function syncTiles(container, usvs, big){
 function renderCameras(){
   const grid = document.getElementById('camgrid');
   if (!grid || !state) return;
+  // lay the tiles out to fit every USV: 2x2 up to 4, then two rows (e.g. 4x2 for 8)
+  const n = state.usvs.length, cols = n <= 4 ? 2 : Math.ceil(n / 2), rows = Math.max(1, Math.ceil(n / cols));
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+  grid.classList.toggle('many', cols > 2);
   syncTiles(grid, state.usvs, false);
   renderVideo();
 }
@@ -1429,7 +1438,11 @@ document.getElementById('healthlist').addEventListener('click', (e)=>{
 fit();
 
 // ================= MESSAGE BOX =================
-const MSG_RECIPIENTS = ["USV-1","USV-2","USV-3","USV-4","ALL USV","Agent","BGC"];
+// one chip per USV in the mission (4, 8, ...), then the group recipients
+function msgRecipients(){
+  const ids = (state && state.usvs && state.usvs.length) ? state.usvs.map(u=>u.id) : ["USV-1","USV-2","USV-3","USV-4"];
+  return [...ids, "ALL USV", "Agent", "BGC"];
+}
 let msgRecipient = "ALL USV";
 const seenMsgIds = new Set();
 const threadMsgs = [];
@@ -1443,7 +1456,7 @@ function usvOutOfRange(id){
 }
 function renderRecipients(){
   const host=document.getElementById("recipients"); if(!host) return;
-  host.innerHTML = MSG_RECIPIENTS.map(r=>{
+  host.innerHTML = msgRecipients().map(r=>{
     const oor = (r.startsWith('USV-')) && usvOutOfRange(r);
     const sel = (r===msgRecipient && !oor) ? " sel" : "";
     const ag = (r==="Agent") ? " agent" : "";
