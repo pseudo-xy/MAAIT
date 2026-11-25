@@ -1065,6 +1065,10 @@ async def ws(sock: WebSocket) -> None:
             while True:
                 msg = await sock.receive_json()
                 action = msg.get("action")
+                # before Start Simulation nothing the operator does counts
+                if (not start_event.is_set() and action != "start"
+                        and not msg.get("admin_token")):
+                    continue
                 if action == "classify":
                     await _handle_classify(world, lock, msg, sock)
                     _log_op(_manual_usv_id(world),

@@ -330,11 +330,13 @@
   .camvidrow { height:clamp(180px, 30vh, 300px); }
   /* 6-8 USVs: smaller tile labels so the id and status badge both fit */
   .camgrid.many .camtile .cid { font-size:8px; top:2px; left:3px; padding:0 3px; }
+  body.prestart .wrap { pointer-events:none; user-select:none; }
+  body.prestart .wrap #startoverlay, body.prestart .wrap #startoverlay * { pointer-events:auto; }
   .healthlist { flex:1 1 auto; min-height:0; overflow-y:auto; }   /* scroll when 8 USVs do not fit */
   .camgrid.many .camtile .cstat { font-size:7px; top:2px; right:2px; padding:0 3px; }
 </style>
 </head>
-<body>
+<body class="prestart">
 <header>
   <div class="title">MAAIT</div>
   <div class="clock" id="clock">t = — min</div>
@@ -476,6 +478,7 @@ sock.onmessage = (e) => {
   // START GATE: show the overlay while awaiting_start; hide once the run begins
   if (state.awaiting_start){ document.getElementById('startoverlay').style.display='flex'; }
   else if (state.now_min > 0){ document.getElementById('startoverlay').style.display='none'; }
+  setPrestart(!!state.awaiting_start || !(state.now_min > 0));
   // VIDEO RECORDING: trigger armed auto-start on the first sim frame
   if (!window.__simStarted && state.now_min > 0){ window.__simStarted = true; if (window.__onSimStart) window.__onSimStart(); }
   document.getElementById('pausedbadge').style.display = state.paused ? 'inline-block' : 'none';
@@ -497,6 +500,13 @@ document.getElementById('startbtn').addEventListener('click', ()=>{
 // it. The menu locks again whenever it is closed, and every page load starts
 // locked.
 let adminToken = null;
+// Before "Start Simulation" nothing on the console can be clicked or typed in
+// (map, cameras, messages, contacts, RTB, agent switches). Only the Start
+// button and the admin menu stay live.
+function setPrestart(on){
+  document.body.classList.toggle('prestart', on);
+  for (const id of ['msgtext','msgsend']){ const e=document.getElementById(id); if (e) e.disabled = on; }
+}
 function adminSend(obj){
   if (!adminToken || sock.readyState !== 1) return;
   sock.send(JSON.stringify({ ...obj, admin_token: adminToken }));
