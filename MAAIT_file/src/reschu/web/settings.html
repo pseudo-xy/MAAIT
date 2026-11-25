@@ -116,6 +116,9 @@
   <span class="gear">⚙️</span>
   <span class="title">ADMINISTRATOR — Scenario Configuration</span>
   <span class="spacer"></span>
+  <button id="importbtn" title="Load a scenario saved as a .json file">Import file</button>
+  <button id="exportbtn" title="Save this scenario as a .json file">Export file</button>
+  <input type="file" id="importfile" accept=".json,application/json" style="display:none">
   <button id="resetbtn" title="Reset to the default scenario">Reset to default</button>
   <a href="/" id="cancel">Cancel</a>
   <button class="apply" id="applybtn">Apply &amp; Return</button>
@@ -723,9 +726,31 @@ document.getElementById('resetbtn').onclick=async()=>{
   location.reload();
 };
 
+// ---- export / import a scenario file ----
+document.getElementById('exportbtn').onclick=()=>{
+  const blob=new Blob([JSON.stringify(collect(), null, 2)], {type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='maait_scenario.json';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+};
+document.getElementById('importbtn').onclick=()=>document.getElementById('importfile').click();
+document.getElementById('importfile').onchange=async(e)=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const c=JSON.parse(await f.text());
+    if(!c || !Array.isArray(c.usvs) || !Array.isArray(c.boats)) throw new Error('not a MAAIT scenario file');
+    showCfg(c);
+    toast('Scenario loaded from '+f.name+'. Check it, then press Apply & Return.');
+  }catch(err){ toast('Could not read that file: '+err.message, false); }
+  e.target.value='';
+};
+
 // ---- load current config ----
 async function load(){
-  const res=await fetch('/config'); cfg=await res.json();
+  const res=await fetch('/config'); showCfg(await res.json());
+}
+function showCfg(c){
+  cfg=c;
+  const cg=document.getElementById('commsGrid'); if(cg) cg.innerHTML='';   // take comms from this scenario, not the old cards
   const gw = cfg.grid?cfg.grid.width:60, gh = cfg.grid?cfg.grid.height:45;
   document.getElementById('gridW').value=gw;
   document.getElementById('gridH').value=gh;
